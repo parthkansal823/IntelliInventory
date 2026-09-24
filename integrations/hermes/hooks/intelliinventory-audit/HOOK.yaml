@@ -1,0 +1,5 @@
+name: intelliinventory-audit
+description: Log Hermes gateway sessions (Telegram, Discord, Slack, ...) into the IntelliInventory audit trail
+events:
+  - agent:start
+  - agent:end

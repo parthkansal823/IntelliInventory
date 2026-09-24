@@ -1,0 +1,22 @@
+# Merge into ~/.hermes/config.yaml  (Hermes Agent by Nous Research)
+# Tools appear in Hermes as  mcp_intelliinventory_<tool>, e.g. mcp_intelliinventory_get_reorder_recommendations
+
+mcp_servers:
+  # Option A — local stdio (no server needed; Hermes launches it). Adjust the path to your checkout.
+  intelliinventory:
+    command: "uv"
+    args: ["run", "--directory", "/path/to/IntelliInventory/backend", "python", "-m", "app.mcp_server"]
+    timeout: 60
+    connect_timeout: 20
+    enabled: true
+    tools:
+      # Everything is safe to expose: write tools are queued for human approval by IntelliInventory.
+      exclude: []
+
+  # Option B — the running app over streamable HTTP (http://localhost:8000). Use one option, not both.
+  intelliinventory_http:
+    url: "http://localhost:8000/mcp/"
+    headers:
+      Authorization: "Bearer hermes-dev-token"   # = INTEGRATION_TOKEN in IntelliInventory's .env
+    timeout: 60
+    enabled: false

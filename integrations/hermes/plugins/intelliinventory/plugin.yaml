@@ -1,0 +1,5 @@
+name: intelliinventory
+version: "1.0"
+description: Guardrails and audit forwarding for IntelliInventory MCP tools
+requires_env:
+  - INTELLIINVENTORY_URL

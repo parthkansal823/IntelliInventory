@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+backend/data/*.db*
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/dev-dist/
+*.tsbuildinfo
+
+# Env & OS
+.env
+.env.local
+.DS_Store
+*.log
+playwright-report/
+test-results/
