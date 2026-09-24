@@ -2,7 +2,7 @@
 
 **AI-native inventory management that plans itself, and asks before it acts.**
 
-It forecasts demand, computes reorder points, drafts purchase orders and investigates anomalies with a team of AI agents. You can run them on **Hermes** (Nous Research, free and local via Ollama), **Claude**, or a built-in **offline planner** that needs no model at all. Every agent action passes through lifecycle **hooks**, and anything that changes stock waits for a human to approve it.
+It forecasts demand, computes reorder points, drafts purchase orders and investigates anomalies with a team of AI agents. You can run them on **Hermes** (Nous Research, free and local via Ollama) or a built-in **offline planner** that needs no model at all — no paid API anywhere. Every agent action passes through lifecycle **hooks**, and anything that changes stock waits for a human to approve it.
 
 > **100% free to run.** SQLite plus an open-source stack. The default AI mode needs no API key, and real LLM reasoning is also free with a local Hermes model.
 
@@ -103,17 +103,15 @@ Production build without Docker: `make build`, then `make api`. FastAPI serves t
 `AI_PROVIDER=auto` (the default) picks the first available provider:
 
 1. **Hermes**, if you configured an endpoint *or* a local Ollama is serving a Hermes model. Hermes is auto-detected and needs no key.
-2. **Claude**, only if you set `ANTHROPIC_API_KEY`. This is a paid API.
-3. **Offline planner** otherwise. It is deterministic, instant and free.
+2. **Offline planner** otherwise. It is deterministic, instant and free, and understands Hinglish ("Diwali ke liye kya stock karna hai?").
 
 You can switch providers per chat in the Copilot header, or globally in **Settings → AI providers**.
 
 | Provider | Setup | Cost |
 |---|---|---|
 | Offline planner | nothing | free |
-| **Hermes via Ollama** | `ollama pull hermes3` (or `hermes3:70b`) and keep Ollama running | **free, local, private** |
-| Hermes via Nous Portal / OpenRouter / vLLM / LM Studio | `HERMES_BASE_URL`, `HERMES_API_KEY`, `HERMES_MODEL` | depends on host |
-| Claude | `ANTHROPIC_API_KEY` (default model `claude-opus-5`, adaptive thinking, server-side refusal fallbacks) | paid |
+| **Hermes via Ollama** | `ollama pull hermes3:3b` (8 GB laptop) or `hermes3` (16 GB) and keep Ollama running | **free, local, private** |
+| Hermes via vLLM / LM Studio / llama.cpp (self-hosted) | `HERMES_BASE_URL`, `HERMES_MODEL` | free |
 
 The Hermes provider supports native OpenAI-style tool calling. It also supports Hermes' own `<tool_call>` XML format (`HERMES_TOOL_MODE=prompt`) for servers without tool support. Hermes 4 `<think>` reasoning is streamed separately, so it never leaks into answers.
 
@@ -155,10 +153,10 @@ flowchart LR
   H4 --> RT
   API --> RT[Agent runtime<br/>copilot + 4 specialists]
   RT -->|pre/post hooks| HK[Lifecycle hooks<br/>guardrails · approvals]
-  RT --> P1[Hermes] & P2[Claude] & P3[Offline]
+  RT --> P1[Hermes] & P3[Offline]
   RT --> TOOLS[Tool registry · 22 tools]
   MCP[MCP server] --> TOOLS
-  HERMES[Hermes Agent / Claude Code] --> MCP
+  HERMES[Hermes Agent / any MCP client] --> MCP
   TOOLS --> SVC
 ```
 
@@ -178,7 +176,7 @@ integrations/hermes   Hermes Agent plugin, gateway hook, skill, installer
 ## Development
 
 ```bash
-make test    # pytest (35 tests: analytics, lifecycle, hooks, agents, Hermes & Claude providers over mocked HTTP, API, MCP, autopilot e2e) + vitest
+make test    # pytest (analytics, lifecycle, hooks, agents, Hermes provider over mocked HTTP, India/GST, API, MCP, autopilot e2e) + vitest
 make lint    # ruff + oxlint + tsc
 make migrate # Alembic migrations (backend/migrations) for Postgres / production
 ```
@@ -191,7 +189,7 @@ Configuration lives in [`.env.example`](.env.example). Every value is optional.
 - uv, Ruff, pytest, Alembic
 - PyJWT + Argon2
 - sse-starlette, the MCP Python SDK v2
-- the `openai` SDK (for Hermes endpoints) and the `anthropic` SDK
+- the `openai` SDK (for Hermes / Ollama endpoints)
 
 **Frontend:**
 - React 19, Vite 8, TypeScript 6, Tailwind CSS v4

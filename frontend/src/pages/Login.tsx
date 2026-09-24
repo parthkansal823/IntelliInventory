@@ -1,8 +1,9 @@
 import { Bot, ChartLine, ShieldCheck, Workflow } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { Button, Card, Field, Input } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
+import { usePublicConfig } from '@/hooks/usePublicConfig'
 
 const DEMO = [
   { email: 'manager@intelliinventory.dev', role: 'Manager', note: 'approves POs & agent actions' },
@@ -12,7 +13,7 @@ const DEMO = [
 ]
 
 const FEATURES = [
-  { icon: Bot, title: 'Multi-agent copilot', text: 'Hermes, Claude or a free offline planner — with human approvals.' },
+  { icon: Bot, title: 'Multi-agent copilot', text: 'Free Hermes AI (runs on your own machine) or an offline planner — with human approvals.' },
   { icon: ChartLine, title: 'Forecast & simulate', text: 'Holt-Winters forecasts, Monte-Carlo what-ifs, smart reorder points.' },
   { icon: Workflow, title: 'Hooks everywhere', text: 'Lifecycle hooks, webhooks, autopilot, plugins and MCP.' },
   { icon: ShieldCheck, title: '100% free to run', text: 'SQLite + open-source stack. No paid API required.' },
@@ -21,8 +22,16 @@ const FEATURES = [
 export function LoginPage() {
   const { user, login } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState(DEMO[0].email)
-  const [password, setPassword] = useState('demo1234')
+  const config = usePublicConfig()
+  const demo = config.data?.demo_accounts ?? false
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  useEffect(() => {
+    if (demo) {
+      setEmail(DEMO[0].email)
+      setPassword('demo1234')
+    }
+  }, [demo])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -77,7 +86,9 @@ export function LoginPage() {
             <h1 className="text-xl font-semibold">IntelliInventory</h1>
           </div>
           <h2 className="text-lg font-semibold">Sign in</h2>
-          <p className="mt-1 text-sm text-muted">Use a demo account below — the password is prefilled.</p>
+          <p className="mt-1 text-sm text-muted">
+            {demo ? 'Live demo — pick an account below, the password is prefilled. Data resets periodically.' : 'Sign in with the account your administrator created.'}
+          </p>
           <form onSubmit={submit} className="mt-6 space-y-4">
             <Field label="Email">
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
@@ -90,6 +101,7 @@ export function LoginPage() {
               Sign in
             </Button>
           </form>
+          {demo && (
           <Card className="mt-6 divide-y divide-border">
             {DEMO.map((d) => (
               <button
@@ -109,6 +121,7 @@ export function LoginPage() {
               </button>
             ))}
           </Card>
+          )}
         </div>
       </div>
     </div>

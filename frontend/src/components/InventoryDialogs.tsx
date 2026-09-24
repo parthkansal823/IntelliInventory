@@ -183,8 +183,8 @@ export function ProductFormDialog({ product, open, onOpenChange }: { product?: P
             {suppliers.data?.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.lead_time_days}d)</option>)}
           </Select>
         </Field>
-        <Field label="Unit cost ($)"><Input type="number" step="0.01" min={0} value={form.unit_cost} onChange={set('unit_cost')} /></Field>
-        <Field label="Unit price ($)"><Input type="number" step="0.01" min={0} value={form.unit_price} onChange={set('unit_price')} /></Field>
+        <Field label="Unit cost (₹)"><Input type="number" step="0.01" min={0} value={form.unit_cost} onChange={set('unit_cost')} /></Field>
+        <Field label="Unit price (₹)"><Input type="number" step="0.01" min={0} value={form.unit_price} onChange={set('unit_price')} /></Field>
         <Field label="Min. order qty"><Input type="number" min={1} value={form.min_order_qty} onChange={set('min_order_qty')} /></Field>
         <Field label="Reorder point" hint="auto if empty"><Input type="number" min={0} value={form.reorder_point} onChange={set('reorder_point')} /></Field>
         <Field label="Safety stock" hint="auto if empty"><Input type="number" min={0} value={form.safety_stock} onChange={set('safety_stock')} /></Field>

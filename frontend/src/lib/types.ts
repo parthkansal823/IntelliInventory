@@ -25,6 +25,10 @@ export interface ProductRow {
   manual_reorder_point: number | null
   manual_safety_stock: number | null
   lead_time_override: number | null
+  hsn_code: string | null
+  gst_rate: number | null
+  gst_source: 'manual' | 'ai' | null
+  price_incl_gst: number
   category?: string | null
   supplier?: string | null
   on_hand?: number
@@ -64,7 +68,8 @@ export interface ForecastData {
   total_forecast: number
   avg_daily_forecast: number
   history: { date: string; actual: number }[]
-  forecast: { date: string; forecast: number; lower: number; upper: number }[]
+  forecast: { date: string; forecast: number; lower: number; upper: number; festival?: string }[]
+  festivals?: { name: string; uplift: number }[]
 }
 
 export interface ProductDetail extends ProductRow {
@@ -111,13 +116,19 @@ export interface POLine {
   quantity: number
   unit_cost: number
   total: number
+  gst_rate?: number
+  hsn_code?: string | null
+  cgst?: number
+  sgst?: number
+  igst?: number
+  tax?: number
 }
 
 export interface PurchaseOrder {
   id: number
   number: string
   status: POStatus
-  supplier: { id: number; name: string } | null
+  supplier: { id: number; name: string; phone: string | null; gstin: string | null; state: string | null; upi_id: string | null } | null
   warehouse: { id: number; code: string; name: string } | null
   created_by: string
   notes: string | null
@@ -127,6 +138,21 @@ export interface PurchaseOrder {
   lines: POLine[]
   total: number
   units: number
+  grand_total: number
+  upi_link: string | null
+  tax: {
+    interstate: boolean
+    supplier_state: string | null
+    warehouse_state: string | null
+    taxable: number
+    cgst: number
+    sgst: number
+    igst: number
+    tax: number
+    grand_total: number
+    eway_bill_required: boolean
+    enabled: boolean
+  }
 }
 
 export interface Recommendation extends Required<Pick<ProductRow, 'sku' | 'name' | 'status' | 'on_hand' | 'on_order' | 'reorder_point' | 'suggested_order_qty' | 'unit_cost'>> {
@@ -202,12 +228,59 @@ export interface CycleCountSummary {
   accuracy_pct: number | null
 }
 
-export interface Warehouse { id: number; code: string; name: string; location: string | null; units?: number; value?: number }
+export interface Warehouse { id: number; code: string; name: string; location: string | null; state: string | null; units?: number; value?: number }
 export interface Category { id: number; name: string; color: string }
-export interface Supplier { id: number; name: string; email: string | null; phone: string | null; lead_time_days: number; rating: number }
+export interface Supplier { id: number; name: string; email: string | null; phone: string | null; lead_time_days: number; rating: number; gstin: string | null; state: string | null; upi_id: string | null }
+
+export interface FestivalInfo {
+  slug: string
+  name: string
+  date: string
+  days_away: number
+  window_days: number
+  buying_starts: string
+  emoji: string
+  note: string
+  categories: Record<string, number>
+}
+
+export interface FestivalPlan {
+  festival: FestivalInfo | null
+  items: {
+    product_id: number
+    sku: string
+    name: string
+    category: string | null
+    supplier: string | null
+    uplift: number
+    avg_daily_demand: number
+    extra_units: number
+    extra_revenue: number
+    on_hand: number
+    on_order: number
+    suggested_order_qty: number
+    estimated_cost: number
+    order_by: string
+    days_left_to_order: number
+    urgent: boolean
+  }[]
+  summary: { products_affected: number; products_to_order: number; extra_units: number; extra_revenue: number; order_value: number; earliest_order_by: string | null }
+}
+
+export interface GstReport {
+  enabled: boolean
+  missing_rates: number
+  days: number
+  slabs: { rate: number; sales_taxable: number; output_tax: number; purchase_taxable: number; input_tax: number }[]
+  output_tax: number
+  input_tax_credit: number
+  net_payable: number
+  carry_forward_credit: number
+  note: string
+}
 
 export interface AgentInfo { name: string; title: string; description: string; color: string; icon: string; tools: string[]; can_delegate: boolean }
-export interface ProviderInfo { name: 'hermes' | 'claude' | 'offline'; label: string; configured: boolean; free: boolean; model?: string | null; base_url?: string; setup: string; error?: string }
+export interface ProviderInfo { name: 'hermes' | 'offline'; label: string; configured: boolean; free: boolean; model?: string | null; base_url?: string; setup: string; error?: string }
 export interface ToolInfo { name: string; description: string; requires_approval: boolean; mutates: boolean; tags: string[]; parameters: unknown }
 export interface HookInfo { name: string; event?: string; pattern?: string; description: string; priority: number; builtin: boolean; enabled: boolean; kind: 'agent' | 'event'; async?: boolean }
 
@@ -272,3 +345,6 @@ export interface Report { id: number; kind: string; title: string; content: stri
 export interface Webhook { id: number; url: string; events: string[]; active: boolean; has_secret: boolean; last_status: number | null; last_error: string | null; last_delivery_at: string | null; created_at: string; secret?: string }
 export interface Job { name: string; description: string; interval_minutes: number; last_run: string | null; next_run: string | null; last_result: string | null }
 export interface Plugin { name: string; source: string; registered: string[]; description: string }
+
+export interface GstSettings { gst_enabled: boolean; slabs: number[]; default_slabs: number[]; states: string[] }
+export interface GstSuggestion { hsn_code: string | null; gst_rate: number; source: 'rules' | 'hermes'; confidence: 'low' | 'medium' | 'high'; reason: string }

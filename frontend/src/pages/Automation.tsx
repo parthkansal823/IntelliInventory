@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useLiveEvents } from '@/hooks/useLiveEvents'
 import { del, get, patch, post } from '@/lib/api'
 import type { HookInfo, LiveEvent, Webhook } from '@/lib/types'
-import { relativeTime } from '@/lib/utils'
+import { relativeTime, timeOnly } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 
 const LIFECYCLE = ['pre_llm_call', 'pre_tool_call', 'post_tool_call', 'post_llm_call', 'agent:start', 'agent:step', 'agent:end']
@@ -258,7 +258,7 @@ function EventLogCard() {
           <tbody>
             {merged.slice(0, 150).map((e) => (
               <tr key={`${e.id}-${e.ts}`} className="border-b border-border/60 align-top">
-                <td className="py-1.5 pr-3 whitespace-nowrap text-subtle">{new Date(e.ts).toLocaleTimeString()}</td>
+                <td className="py-1.5 pr-3 whitespace-nowrap text-subtle">{timeOnly(e.ts)}</td>
                 <td className="py-1.5 pr-3"><code className="font-medium">{e.type}</code></td>
                 <td className="py-1.5 pr-3"><Actor actor={e.source} /></td>
                 <td className="max-w-md truncate py-1.5 font-mono text-muted">{JSON.stringify(e.payload)}</td>

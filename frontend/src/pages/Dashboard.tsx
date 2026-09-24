@@ -2,7 +2,7 @@ import {
   Activity,
   Bot,
   Boxes,
-  CircleDollarSign,
+  IndianRupee,
   Gauge,
   PackageX,
   Radar,
@@ -18,6 +18,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { BarList, SalesTrendChart, StockHealth } from '@/components/charts'
 import { Actor, Kpi, MarkdownView, SeverityIcon, StatusBadge } from '@/components/domain'
+import { NextFestivalCard } from '@/components/india'
 import { Badge, Button, Card, CardHeader, EmptyState, Skeleton } from '@/components/ui'
 import { keys, useAction, useAlerts, useDashboard, useHealth, useProducts, useReorder, useReports } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
@@ -25,7 +26,7 @@ import { useLiveEvents } from '@/hooks/useLiveEvents'
 import { post } from '@/lib/api'
 import { canSpeak, speak, stopSpeaking } from '@/lib/speech'
 import type { ProductRow } from '@/lib/types'
-import { cn, greeting, money, moneyCompact, number, relativeTime, titleCase } from '@/lib/utils'
+import { cn, greeting, IST, money, moneyCompact, number, relativeTime, titleCase } from '@/lib/utils'
 
 export default function Dashboard() {
   const { user, can } = useAuth()
@@ -47,7 +48,7 @@ export default function Dashboard() {
             {greeting()}, {user?.name.split(' ')[0]} 👋
           </h1>
           <p className="mt-1 text-sm text-muted">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} · here's what needs your attention.
+            {new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric', timeZone: IST })} · here's what needs your attention.
           </p>
         </div>
         <div className="flex gap-2">
@@ -62,8 +63,10 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <NextFestivalCard />
+
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <Kpi label="Inventory value" value={moneyCompact(k?.inventory_value)} icon={<CircleDollarSign className="size-4" />} hint={`${number(k?.total_units)} units`} loading={dash.isLoading} />
+        <Kpi label="Inventory value" value={moneyCompact(k?.inventory_value)} icon={<IndianRupee className="size-4" />} hint={`${number(k?.total_units)} units`} loading={dash.isLoading} />
         <Kpi label="Revenue · 30d" value={moneyCompact(k?.revenue_30d)} icon={<TrendingUp className="size-4" />} delta={k?.revenue_change_pct} hint="vs prior 30d" loading={dash.isLoading} />
         <Kpi label="Active SKUs" value={number(k?.total_skus)} icon={<Boxes className="size-4" />} hint={`${k?.overstock ?? 0} overstocked`} loading={dash.isLoading} />
         <Kpi label="Low / critical" value={number(k?.low_stock)} icon={<TriangleAlert className="size-4" />} tone={k?.low_stock ? 'warning' : 'good'} hint={`${k?.reorder_needed ?? 0} need reorder`} loading={dash.isLoading} />

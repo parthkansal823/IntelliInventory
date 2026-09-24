@@ -42,8 +42,8 @@ describe('readSSE', () => {
 
 describe('formatters', () => {
   it('formats money, percentages and actors', () => {
-    expect(money(1234.5)).toBe('$1,235')
-    expect(money(9.5)).toBe('$9.50')
+    expect(money(123456.5)).toBe('₹1,23,457')
+    expect(money(9.5)).toBe('₹9.50')
     expect(pct(12.345)).toBe('12.3%')
     expect(actorLabel('agent:procurement~manager@x')).toEqual({ label: 'procurement', isAgent: true })
     expect(actorLabel('user:meera@x.dev')).toEqual({ label: 'meera', isAgent: false })

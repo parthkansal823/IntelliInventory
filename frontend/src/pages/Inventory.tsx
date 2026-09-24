@@ -9,7 +9,7 @@ import { useCategories, useProduct, useProducts } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { download } from '@/lib/api'
 import type { ProductRow, StockStatus } from '@/lib/types'
-import { cn, dateTime, money, number, titleCase } from '@/lib/utils'
+import { cn, dateTime, money, number, shortDate, titleCase } from '@/lib/utils'
 
 type SortKey = 'sku' | 'name' | 'on_hand' | 'days_of_cover' | 'avg_daily_demand' | 'stock_value' | 'status'
 
@@ -204,7 +204,7 @@ function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void
               ['On hand', number(p.on_hand)],
               ['On order', number(p.on_order)],
               ['Days of cover', p.days_of_cover == null ? '—' : `${p.days_of_cover}d`],
-              ['Stockout ≈', p.stockout_date ? new Date(p.stockout_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'],
+              ['Stockout ≈', p.stockout_date ? shortDate(p.stockout_date) : '—'],
               ['Safety stock', number(p.safety_stock)],
               ['Reorder point', number(p.reorder_point)],
               ['EOQ', number(p.eoq)],

@@ -44,3 +44,20 @@ export function createRecognition(lang = 'en-IN'): Recognition | null {
   r.continuous = false
   return r
 }
+
+/** Markdown -> WhatsApp formatting (*bold*, bullet lines, no tables). */
+export function toWhatsApp(markdown: string): string {
+  return markdown
+    .split('\n')
+    .filter((l) => !/^\s*\|/.test(l))
+    .map((l) => l.replace(/^#{1,6}\s*(.+)$/, '*$1*').replace(/\*\*(.+?)\*\*/g, '*$1*').replace(/^\s*[-*]\s+/, '• ').replace(/_(.+?)_/g, '_$1_'))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/** Free WhatsApp share link (no API): wa.me/<number>?text=... ; number optional. */
+export function whatsappLink(text: string, phone?: string | null): string {
+  const digits = (phone ?? '').replace(/\D/g, '')
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+}

@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner'
 import { post } from '@/lib/api'
 import type { StockStatus } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { cn, timeOnly } from '@/lib/utils'
 
 type Action = 'lookup' | 'receive' | 'sell' | 'return' | 'adjust'
 interface ScanResult {
@@ -32,7 +32,7 @@ export default function Scan() {
     {
       success: (r) => (action === 'lookup' ? `${r.product.name}: ${r.on_hand} on hand` : `${r.product.name} → ${r.on_hand} on hand`),
       invalidate: action === 'lookup' ? [] : [keys.products, keys.dashboard, keys.alerts],
-      onSuccess: (r) => setLog((l) => [{ ...r, action, qty, at: new Date().toLocaleTimeString() }, ...l].slice(0, 20)),
+      onSuccess: (r) => setLog((l) => [{ ...r, action, qty, at: timeOnly(new Date()) }, ...l].slice(0, 20)),
     },
   )
   const { videoRef, active, error, start, stop } = useBarcodeScanner((c) => scan.mutate(c))

@@ -13,6 +13,7 @@ import { useApprovals, useAlerts } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { useLiveEvents } from '@/hooks/useLiveEvents'
 import { useTheme, type Theme } from '@/hooks/useTheme'
+import { usePublicConfig } from '@/hooks/usePublicConfig'
 import { cn } from '@/lib/utils'
 import { Kbd, Tooltip } from '../ui'
 import { CommandPalette } from './CommandPalette'
@@ -107,6 +108,7 @@ export function AppLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const { connected } = useLiveEvents()
+  const config = usePublicConfig()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -176,6 +178,11 @@ export function AppLayout() {
             <span className="hidden sm:inline"><Kbd>⌘K</Kbd></span>
           </button>
           <div className="ml-auto flex items-center gap-1">
+            {config.data?.demo_mode && (
+              <Tooltip content="Public demo — sample data, resets periodically">
+                <span className="rounded-md border border-warning/40 bg-warning/15 px-2 py-0.5 text-xs font-medium text-[#8a5a00] dark:text-warning">Demo</span>
+              </Tooltip>
+            )}
             <Tooltip content={connected ? 'Live updates connected' : 'Reconnecting…'}>
               <span className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-muted">
                 <span className={cn('size-2 rounded-full', connected ? 'bg-good animate-pulse-dot' : 'bg-subtle')} />

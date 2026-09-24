@@ -11,7 +11,11 @@ import type {
   ConversationSummary,
   CycleCountSummary,
   Dashboard,
+  FestivalInfo,
+  FestivalPlan,
   ForecastData,
+  GstReport,
+  GstSettings,
   HookInfo,
   Job,
   Plugin,
@@ -157,3 +161,9 @@ export interface MarkdownSuggestion {
 }
 export const useHealth = () => useQuery({ queryKey: ['health'], queryFn: () => get<HealthScore>('/api/analytics/health') })
 export const useMarkdowns = () => useQuery({ queryKey: ['markdowns'], queryFn: () => get<MarkdownSuggestion[]>('/api/analytics/markdowns') })
+
+export const useFestivals = () => useQuery({ queryKey: ['festivals'], queryFn: () => get<FestivalInfo[]>('/api/india/festivals'), staleTime: 3_600_000 })
+export const useFestivalPlan = (festival: string | null) =>
+  useQuery({ queryKey: ['festival-plan', festival], queryFn: () => get<FestivalPlan>(`/api/india/festival-plan${festival ? `?festival=${festival}` : ''}`) })
+export const useGst = (days = 30) => useQuery({ queryKey: ['gst', days], queryFn: () => get<GstReport>(`/api/india/gst?days=${days}`) })
+export const useGstSettings = () => useQuery({ queryKey: ['gst-settings'], queryFn: () => get<GstSettings>('/api/india/settings'), staleTime: 60_000 })

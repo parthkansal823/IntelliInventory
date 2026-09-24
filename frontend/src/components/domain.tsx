@@ -59,7 +59,7 @@ export function StockBar({ onHand = 0, reorderPoint = 0, status }: { onHand?: nu
         <div className="h-full rounded-full" style={{ width: `${Math.min(100, (onHand / max) * 100)}%`, background: color }} />
         <div className="absolute top-0 h-full w-0.5 bg-fg/40" style={{ left: `${Math.min(99, (reorderPoint / max) * 100)}%` }} />
       </div>
-      <span className="text-sm tabular-nums">{onHand.toLocaleString()}</span>
+      <span className="text-sm tabular-nums">{onHand.toLocaleString('en-IN')}</span>
     </div>
   )
 }

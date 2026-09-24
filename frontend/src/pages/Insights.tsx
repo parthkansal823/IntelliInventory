@@ -1,22 +1,27 @@
 import { FlaskConical, Play, ShoppingCart, Tag } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { BarList, ForecastChart, SimulationChart } from '@/components/charts'
 import { SeverityIcon, StatusBadge } from '@/components/domain'
+import { FestivalPlanner, GstPanel } from '@/components/india'
 import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, PageHeader, Select, Skeleton, Table, Tabs, TabsContent, TabsList, TabsTrigger, Td, Th } from '@/components/ui'
-import { keys, useAbc, useAction, useAnomalies, useForecast, useMargins, useMarkdowns, useProducts, useReorder, useSupplierScores } from '@/hooks/queries'
+import { keys, useAbc, useAction, useAnomalies, useForecast, useGstSettings, useMargins, useMarkdowns, useProducts, useReorder, useSupplierScores } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { post } from '@/lib/api'
 import type { Simulation } from '@/lib/types'
 import { cn, money, moneyCompact, number, pct, titleCase } from '@/lib/utils'
 
 export default function Insights() {
+  const [params, setParams] = useSearchParams()
+  const gstOn = useGstSettings().data?.gst_enabled ?? true
   return (
     <div>
-      <PageHeader title="Insights" description="Forecasts, replenishment, pricing and risk — computed live from your ledger." />
-      <Tabs defaultValue="reorder">
+      <PageHeader title="Insights" description="Forecasts, replenishment, festivals, GST and risk — computed live from your ledger." />
+      <Tabs value={params.get('tab') ?? 'reorder'} onValueChange={(tab) => setParams({ tab }, { replace: true })}>
         <TabsList>
           <TabsTrigger value="reorder">Reorder plan</TabsTrigger>
+          <TabsTrigger value="festival">🪔 Festival planner</TabsTrigger>
+          {gstOn && <TabsTrigger value="gst">GST</TabsTrigger>}
           <TabsTrigger value="forecast">Forecast & what-if</TabsTrigger>
           <TabsTrigger value="markdowns">Smart markdowns</TabsTrigger>
           <TabsTrigger value="abc">ABC analysis</TabsTrigger>
@@ -25,6 +30,8 @@ export default function Insights() {
           <TabsTrigger value="margins">Margins</TabsTrigger>
         </TabsList>
         <TabsContent value="reorder"><ReorderPlan /></TabsContent>
+        <TabsContent value="festival"><FestivalPlanner /></TabsContent>
+        <TabsContent value="gst"><GstPanel /></TabsContent>
         <TabsContent value="forecast"><ForecastLab /></TabsContent>
         <TabsContent value="markdowns"><Markdowns /></TabsContent>
         <TabsContent value="abc"><Abc /></TabsContent>
