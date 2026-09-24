@@ -12,6 +12,17 @@ import type { ProductRow, StockStatus } from '@/lib/types'
 import { cn, dateTime, money, number, titleCase } from '@/lib/utils'
 
 type SortKey = 'sku' | 'name' | 'on_hand' | 'days_of_cover' | 'avg_daily_demand' | 'stock_value' | 'status'
+
+function SortTh({ k, sort, onSort, children, className }: { k: SortKey; sort: { key: SortKey }; onSort: (k: SortKey) => void; children: ReactNode; className?: string }) {
+  return (
+    <Th className={className}>
+      <button onClick={() => onSort(k)} className={cn('inline-flex items-center gap-1 hover:text-fg', sort.key === k && 'text-fg')}>
+        {children}
+        <ArrowDownUp className="size-3 opacity-50" />
+      </button>
+    </Th>
+  )
+}
 const STATUS_ORDER: Record<StockStatus, number> = { out: 0, critical: 1, low: 2, healthy: 3, overstock: 4 }
 
 export default function Inventory() {
@@ -42,14 +53,6 @@ export default function Inventory() {
   }, [products.data, query, status, category, sort])
 
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, dir: s.key === key ? ((-s.dir) as 1 | -1) : 1 }))
-  const SortTh = ({ k, children, className }: { k: SortKey; children: ReactNode; className?: string }) => (
-    <Th className={className}>
-      <button onClick={() => toggleSort(k)} className={cn('inline-flex items-center gap-1 hover:text-fg', sort.key === k && 'text-fg')}>
-        {children}
-        <ArrowDownUp className="size-3 opacity-50" />
-      </button>
-    </Th>
-  )
   const attention = (products.data ?? []).filter((p) => ['out', 'critical', 'low'].includes(p.status ?? '')).length
 
   return (
@@ -109,14 +112,14 @@ export default function Inventory() {
           <Table>
             <thead>
               <tr>
-                <SortTh k="sku">SKU</SortTh>
-                <SortTh k="name">Product</SortTh>
-                <SortTh k="on_hand">On hand · ROP</SortTh>
-                <SortTh k="status">Status</SortTh>
-                <SortTh k="days_of_cover" className="text-right">Cover</SortTh>
-                <SortTh k="avg_daily_demand" className="text-right">Demand/day</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="sku">SKU</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="name">Product</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="on_hand">On hand · ROP</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="status">Status</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="days_of_cover" className="text-right">Cover</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="avg_daily_demand" className="text-right">Demand/day</SortTh>
                 <Th>ABC</Th>
-                <SortTh k="stock_value" className="text-right">Value</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="stock_value" className="text-right">Value</SortTh>
               </tr>
             </thead>
             <tbody>

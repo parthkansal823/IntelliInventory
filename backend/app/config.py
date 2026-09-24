@@ -4,6 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -44,12 +45,13 @@ class Settings(BaseSettings):
     # "native" = OpenAI `tools` param; "prompt" = Hermes <tool_call> XML format
     hermes_tool_mode: Literal["native", "prompt"] = "native"
 
-    # Anthropic Claude
+    # Anthropic Claude. Model/effort/fallbacks use an II_ prefix because Claude Code itself
+    # exports CLAUDE_* variables (e.g. CLAUDE_EFFORT) that must not leak into the app.
     anthropic_api_key: str | None = None
-    claude_model: str = "claude-opus-5"
-    claude_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+    claude_model: str = Field("claude-opus-5", validation_alias="II_CLAUDE_MODEL")
+    claude_effort: Literal["low", "medium", "high", "xhigh", "max"] = Field("medium", validation_alias="II_CLAUDE_EFFORT")
     # Server-side refusal fallbacks ("default" routes by refusal category, "off" disables)
-    claude_fallbacks: Literal["default", "off"] = "default"
+    claude_fallbacks: Literal["default", "off"] = Field("default", validation_alias="II_CLAUDE_FALLBACKS")
 
     agent_max_steps: int = 8
 

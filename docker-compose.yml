@@ -1,0 +1,42 @@
+# Free, self-hosted stack.
+#   docker compose up --build                      -> app on http://localhost:8000 (SQLite, offline AI planner)
+#   docker compose --profile hermes up --build     -> + Ollama; then: docker compose exec ollama ollama pull hermes3
+#   docker compose --profile postgres up --build   -> + PostgreSQL 17 (set DATABASE_URL below)
+services:
+  app:
+    build: .
+    ports: ["8000:8000"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      # DATABASE_URL: postgresql+psycopg://intelli:intelli@postgres:5432/intelliinventory
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["hermes"]
+    ports: ["11434:11434"]
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: intelli
+      POSTGRES_PASSWORD: intelli
+      POSTGRES_DB: intelliinventory
+    ports: ["5432:5432"]
+    volumes:
+      - pg:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  app-data:
+  ollama:
+  pg:

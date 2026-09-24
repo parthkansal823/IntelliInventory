@@ -10,7 +10,9 @@ export function useBarcodeScanner(onScan: (code: string) => void) {
   const [active, setActive] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const callback = useRef(onScan)
-  callback.current = onScan
+  useEffect(() => {
+    callback.current = onScan
+  }, [onScan])
 
   const stop = useCallback(() => {
     controls.current?.stop()

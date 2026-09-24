@@ -64,7 +64,9 @@ export function useAgentChat(initialConversationId: string | null) {
   // Load when the caller switches conversations - but not when the URL merely catches up with the
   // conversation this hook just created (that would abort the live stream).
   const currentId = useRef<string | null>(meta.conversationId)
-  currentId.current = meta.conversationId
+  useEffect(() => {
+    currentId.current = meta.conversationId
+  }, [meta.conversationId])
   const loaded = useRef(false)
   useEffect(() => {
     if (loaded.current && initialConversationId === currentId.current) return

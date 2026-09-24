@@ -35,7 +35,7 @@ export default function Scan() {
       onSuccess: (r) => setLog((l) => [{ ...r, action, qty, at: new Date().toLocaleTimeString() }, ...l].slice(0, 20)),
     },
   )
-  const camera = useBarcodeScanner((c) => scan.mutate(c))
+  const { videoRef, active, error, start, stop } = useBarcodeScanner((c) => scan.mutate(c))
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (code.trim()) scan.mutate(code.trim())
@@ -49,22 +49,22 @@ export default function Scan() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="overflow-hidden">
           <div className="relative aspect-[4/3] bg-black">
-            <video ref={camera.videoRef} className={cn('size-full object-cover', !camera.active && 'hidden')} muted playsInline />
-            {!camera.active && (
+            <video ref={videoRef} className={cn('size-full object-cover', !active && 'hidden')} muted playsInline />
+            {!active && (
               <div className="absolute inset-0 grid place-items-center text-center text-white/70">
                 <div>
                   <ScanLine className="mx-auto size-10" />
-                  <p className="mt-2 text-sm">{camera.error ?? 'Camera is off'}</p>
+                  <p className="mt-2 text-sm">{error ?? 'Camera is off'}</p>
                 </div>
               </div>
             )}
-            {camera.active && <div className="pointer-events-none absolute inset-8 rounded-2xl border-2 border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />}
+            {active && <div className="pointer-events-none absolute inset-8 rounded-2xl border-2 border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />}
           </div>
           <div className="flex gap-2 p-3">
-            {camera.active ? (
-              <Button variant="secondary" className="flex-1" onClick={camera.stop}><CameraOff className="size-4" /> Stop camera</Button>
+            {active ? (
+              <Button variant="secondary" className="flex-1" onClick={stop}><CameraOff className="size-4" /> Stop camera</Button>
             ) : (
-              <Button className="flex-1" onClick={camera.start}><Camera className="size-4" /> Start camera</Button>
+              <Button className="flex-1" onClick={start}><Camera className="size-4" /> Start camera</Button>
             )}
           </div>
           <form onSubmit={submit} className="flex gap-2 border-t border-border p-3">

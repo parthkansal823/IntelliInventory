@@ -130,8 +130,18 @@ def adjust_stock(
     type: MovementType = MovementType.ADJUSTMENT,
 ) -> StockMovement:
     product = find_product(session, product_ref)
-    warehouse = find_warehouse(session, warehouse_ref)
+    warehouse = (
+        find_warehouse(session, warehouse_ref) if warehouse_ref not in (None, "") else primary_warehouse(session, product.id)
+    )
     return apply_movement(session, product, warehouse, type, delta, actor=actor, note=reason)
+
+
+def primary_warehouse(session: Session, product_id: int) -> Warehouse:
+    """The warehouse holding the most stock of a product (default for unqualified movements)."""
+    level = session.exec(
+        select(StockLevel).where(StockLevel.product_id == product_id).order_by(StockLevel.quantity.desc())
+    ).first()
+    return session.get(Warehouse, level.warehouse_id) if level else find_warehouse(session, None)
 
 
 def transfer_stock(
