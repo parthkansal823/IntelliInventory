@@ -6,13 +6,11 @@ from app.config import get_settings
 from app.services.settings import get_setting
 
 from .base import Provider, ProviderError
-from .claude import ClaudeProvider
 from .hermes import HermesProvider
 from .offline import OfflineProvider
 
 PROVIDERS: dict[str, type[Provider]] = {
     "hermes": HermesProvider,
-    "claude": ClaudeProvider,
     "offline": OfflineProvider,
 }
 _instances: dict[str, Provider] = {}
@@ -20,7 +18,6 @@ _instances: dict[str, Provider] = {}
 SETUP_HINTS = {
     "hermes": "Free & local: install Ollama, run `ollama pull hermes3`, keep it running — auto-detected. "
     "Or set HERMES_BASE_URL / HERMES_API_KEY for Nous Portal, OpenRouter, vLLM or LM Studio.",
-    "claude": "Optional paid API: set ANTHROPIC_API_KEY.",
     "offline": "Built in. Deterministic planner, no model, no cost.",
 }
 
@@ -28,11 +25,8 @@ SETUP_HINTS = {
 def resolve_provider_name(requested: str | None = None) -> str:
     name = requested or get_setting("agents.provider") or get_settings().ai_provider
     if name == "auto":
-        # Free first: local/configured Hermes, then Claude (only if a key was supplied), then offline.
-        for candidate in ("hermes", "claude"):
-            if PROVIDERS[candidate].configured():
-                return candidate
-        return "offline"
+        # Always free: a local/configured Hermes model if one is available, otherwise the offline planner.
+        return "hermes" if PROVIDERS["hermes"].configured() else "offline"
     if name not in PROVIDERS or not PROVIDERS[name].configured():
         return "offline"
     return name

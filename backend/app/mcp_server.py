@@ -2,7 +2,7 @@
 
 Exposes the same tool registry the in-app agents use - with the same lifecycle
 hooks, guardrails and human approvals - to any MCP client: Hermes Agent,
-Claude Code, Claude Desktop, Cursor, ...
+Cursor, VS Code, any MCP-capable client ...
 
     stdio:  uv run --directory backend python -m app.mcp_server
     HTTP:   served by the API at http://localhost:8000/mcp/  (Bearer INTEGRATION_TOKEN)

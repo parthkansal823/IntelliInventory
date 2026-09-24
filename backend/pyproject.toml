@@ -1,11 +1,10 @@
 [project]
 name = "intelliinventory"
 version = "0.1.0"
-description = "AI-native inventory management: forecasting, multi-agent copilot (Hermes / Claude / offline), hooks and MCP"
+description = "AI-native inventory management: forecasting, free multi-agent copilot (Hermes / offline), hooks and MCP"
 requires-python = ">=3.11"
 dependencies = [
     "alembic>=1.20.0",
-    "anthropic>=1.8.0",
     "fastapi[standard]>=0.141.1",
     "httpx>=0.28.1",
     "mcp[cli]>=2.2.0",

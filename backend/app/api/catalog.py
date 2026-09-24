@@ -7,7 +7,7 @@ from sqlmodel import func, select
 from app.hooks.bus import bus
 from app.models import Category, MovementType, Product, StockMovement, Supplier, Warehouse
 from app.security import CurrentUser, DbSession, ManagerUser, actor
-from app.services import analytics, inventory
+from app.services import analytics, india, inventory
 
 router = APIRouter(prefix="/api", tags=["catalog"])
 
@@ -24,6 +24,8 @@ class ProductIn(BaseModel):
     safety_stock: int | None = Field(default=None, ge=0)
     min_order_qty: int = Field(default=1, ge=1)
     lead_time_days: int | None = Field(default=None, ge=1)
+    hsn_code: str | None = Field(default=None, max_length=8)
+    gst_rate: float | None = Field(default=None, ge=0, le=40)  # optional: AI fills it in later
     initial_qty: int = Field(default=0, ge=0)
     warehouse_id: int | None = None
 
@@ -39,6 +41,8 @@ class ProductPatch(BaseModel):
     safety_stock: int | None = Field(default=None, ge=0)
     min_order_qty: int | None = Field(default=None, ge=1)
     lead_time_days: int | None = Field(default=None, ge=1)
+    hsn_code: str | None = Field(default=None, max_length=8)
+    gst_rate: float | None = Field(default=None, ge=0, le=40)
     is_active: bool | None = None
     clear_overrides: bool = False
 
@@ -58,6 +62,10 @@ def product_row(p: Product, m: analytics.ProductMetrics | None) -> dict:
         "manual_reorder_point": p.reorder_point,
         "manual_safety_stock": p.safety_stock,
         "lead_time_override": p.lead_time_days,
+        "hsn_code": p.hsn_code,
+        "gst_rate": p.gst_rate,
+        "gst_source": p.gst_source,
+        "price_incl_gst": round(p.unit_price * (1 + (p.gst_rate or 0) / 100), 2),
     }
     if m:
         base.update({k: v for k, v in m.to_dict().items() if k not in ("product_id", "sku", "name", "unit_cost", "unit_price")})
@@ -112,6 +120,8 @@ def create_product(session: DbSession, body: ProductIn, user: ManagerUser) -> di
     data = body.model_dump(exclude={"initial_qty", "warehouse_id"})
     data["sku"] = sku
     product = Product(**data)
+    if product.gst_rate is not None:
+        product.gst_source = "manual"
     session.add(product)
     session.commit()
     session.refresh(product)
@@ -139,6 +149,8 @@ def update_product(session: DbSession, product_id: int, body: ProductPatch, user
     changes = body.model_dump(exclude_unset=True, exclude={"clear_overrides"})
     for key, value in changes.items():
         setattr(product, key, value)
+    if "gst_rate" in changes or "hsn_code" in changes:
+        product.gst_source = "manual" if product.gst_rate is not None else None  # a human confirmed/edited it
     if body.clear_overrides:
         product.reorder_point = product.safety_stock = product.lead_time_days = None
     session.add(product)
@@ -173,12 +185,34 @@ class SupplierIn(BaseModel):
     phone: str | None = None
     lead_time_days: int = Field(default=7, ge=1)
     rating: float = Field(default=4.0, ge=0, le=5)
+    gstin: str | None = None
+    state: str | None = None
+    upi_id: str | None = None
+
+    def validated(self) -> dict:
+        data = self.model_dump()
+        try:
+            data["phone"] = india.normalize_phone(self.phone)
+            data["state"] = india.normalize_state(self.state)
+            data["upi_id"] = india.normalize_upi(self.upi_id)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        if self.gstin and self.gstin.strip():
+            ok, info = india.validate_gstin(self.gstin)
+            if not ok:
+                raise HTTPException(422, f"Invalid GSTIN: {info}")
+            data["gstin"] = self.gstin.strip().upper()
+            data["state"] = info  # the GSTIN's state code decides CGST+SGST vs IGST
+        else:
+            data["gstin"] = None
+        return data
 
 
 class WarehouseIn(BaseModel):
     code: str
     name: str
     location: str | None = None
+    state: str | None = None
 
 
 @router.get("/categories")
@@ -202,7 +236,7 @@ def list_suppliers(session: DbSession, _: CurrentUser) -> list[Supplier]:
 
 @router.post("/suppliers", status_code=201)
 def create_supplier(session: DbSession, body: SupplierIn, _: ManagerUser) -> Supplier:
-    sup = Supplier(**body.model_dump())
+    sup = Supplier(**body.validated())
     session.add(sup)
     session.commit()
     session.refresh(sup)
@@ -214,7 +248,7 @@ def update_supplier(session: DbSession, supplier_id: int, body: SupplierIn, _: M
     sup = session.get(Supplier, supplier_id)
     if sup is None:
         raise HTTPException(404, "Supplier not found")
-    for k, v in body.model_dump().items():
+    for k, v in body.validated().items():
         setattr(sup, k, v)
     session.add(sup)
     session.commit()
@@ -242,6 +276,7 @@ def list_warehouses(session: DbSession, _: CurrentUser) -> list[dict]:
                 "code": w.code,
                 "name": w.name,
                 "location": w.location,
+                "state": w.state,
                 "units": int(units),
                 "value": round(float(value), 2),
             }
@@ -251,7 +286,11 @@ def list_warehouses(session: DbSession, _: CurrentUser) -> list[dict]:
 
 @router.post("/warehouses", status_code=201)
 def create_warehouse(session: DbSession, body: WarehouseIn, _: ManagerUser) -> Warehouse:
-    wh = Warehouse(code=body.code.upper(), name=body.name, location=body.location)
+    try:
+        state = india.normalize_state(body.state)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    wh = Warehouse(code=body.code.upper(), name=body.name, location=body.location, state=state)
     session.add(wh)
     session.commit()
     session.refresh(wh)

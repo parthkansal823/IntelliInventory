@@ -10,7 +10,6 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_tmp / 'test.db'}"
 os.environ["AI_PROVIDER"] = "offline"
 os.environ["OLLAMA_AUTODETECT"] = "false"
 os.environ["AUTOPILOT_ENABLED"] = "false"
-os.environ.pop("ANTHROPIC_API_KEY", None)
 os.environ.pop("HERMES_BASE_URL", None)
 
 from fastapi.testclient import TestClient  # noqa: E402

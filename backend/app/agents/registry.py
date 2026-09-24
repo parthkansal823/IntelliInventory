@@ -57,11 +57,18 @@ AGENTS: dict[str, AgentSpec] = {
         instructions=(
             "You are the user's single point of contact. Answer quick questions yourself with your read tools. "
             "Delegate focused work with the `delegate` tool: forecasting / what-if → forecaster; reordering, purchase "
-            "orders and suppliers → procurement; anomalies, stock adjustments, transfers and cycle counts → auditor; "
+            "orders, suppliers and festival stock-ups → procurement; anomalies, stock adjustments, transfers and cycle counts → auditor; "
             "deep analysis (ABC, margins, movement history) → analyst. You may delegate to several specialists in "
             "sequence, then synthesise one clear answer. Don't repeat the specialist's answer verbatim if it is long."
         ),
-        tool_names=READ_CORE + ["get_low_stock_items", "get_reorder_recommendations", "list_purchase_orders", "get_health_score"],
+        tool_names=READ_CORE
+        + [
+            "get_low_stock_items",
+            "get_reorder_recommendations",
+            "list_purchase_orders",
+            "get_health_score",
+            "plan_festival_stock",
+        ],
         color="#6366f1",
         icon="sparkles",
         can_delegate=True,
@@ -79,6 +86,8 @@ AGENTS: dict[str, AgentSpec] = {
             "get_low_stock_items",
             "get_health_score",
             "get_markdown_suggestions",
+            "gst_summary",
+            "suggest_gst",
         ],
         color="#0ea5e9",
         icon="chart",
@@ -97,6 +106,7 @@ AGENTS: dict[str, AgentSpec] = {
             "forecast_demand",
             "simulate_policy",
             "get_reorder_recommendations",
+            "plan_festival_stock",
         ],
         color="#10b981",
         icon="trending",
@@ -120,6 +130,7 @@ AGENTS: dict[str, AgentSpec] = {
             "create_purchase_order",
             "update_purchase_order_status",
             "update_reorder_settings",
+            "plan_festival_stock",
         ],
         color="#f59e0b",
         icon="truck",

@@ -11,6 +11,7 @@ from sqlmodel import func, select
 from app.models import CycleCount, MovementType, POStatus, Product, PurchaseOrder, StockMovement, Warehouse, utcnow
 from app.security import CurrentUser, DbSession, ManagerUser, StaffUser, actor
 from app.services import analytics, counts, importer, inventory, purchasing
+from app.services.india import transfer_eway
 
 router = APIRouter(prefix="/api", tags=["operations"])
 
@@ -58,10 +59,14 @@ def adjust(session: DbSession, body: AdjustIn, user: StaffUser) -> dict:
 
 @router.post("/inventory/transfer")
 def transfer(session: DbSession, body: TransferIn, user: StaffUser) -> dict:
-    inventory.transfer_stock(
+    out, inn = inventory.transfer_stock(
         session, body.product_id, body.quantity, body.from_warehouse_id, body.to_warehouse_id, actor=actor(user)
     )
-    return {"warehouses": inventory.stock_by_warehouse(session, body.product_id)}
+    product = session.get(Product, body.product_id)
+    eway = transfer_eway(
+        session, product, body.quantity, session.get(Warehouse, out.warehouse_id), session.get(Warehouse, inn.warehouse_id)
+    )
+    return {"warehouses": inventory.stock_by_warehouse(session, body.product_id), "eway": eway}
 
 
 @router.post("/inventory/scan")

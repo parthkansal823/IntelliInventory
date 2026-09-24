@@ -1,15 +1,23 @@
 """SQLModel tables."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship, SQLModel
 
+# India-only app: one fixed timezone (no DST in India). A fixed offset needs no tz database (works on Windows too).
+IST = timezone(timedelta(hours=5, minutes=30), "IST")
+
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def ist_today() -> date:
+    """Today's date in India."""
+    return datetime.now(IST).date()
 
 
 def day_start(d) -> datetime:
@@ -63,6 +71,9 @@ class Supplier(SQLModel, table=True):
     phone: str | None = None
     lead_time_days: int = 7
     rating: float = 4.0
+    gstin: str | None = None  # 15-char GST identification number
+    state: str | None = None  # Indian state, decides CGST+SGST vs IGST
+    upi_id: str | None = None  # e.g. freshfarm@okhdfcbank - POs show a UPI "scan to pay" QR
 
 
 class Warehouse(SQLModel, table=True):
@@ -70,6 +81,7 @@ class Warehouse(SQLModel, table=True):
     code: str = Field(index=True, unique=True)
     name: str
     location: str | None = None
+    state: str | None = None
 
 
 class Product(SQLModel, table=True):
@@ -86,6 +98,9 @@ class Product(SQLModel, table=True):
     safety_stock: int | None = None
     min_order_qty: int = 1
     lead_time_days: int | None = None
+    hsn_code: str | None = None  # HSN code for GST (optional; AI can fill it later)
+    gst_rate: float | None = None  # GST 2.0 slab in %: 0, 3 (gold/silver), 5, 18, 40; None = not set yet
+    gst_source: str | None = None  # "manual" | "ai" (AI-suggested, pending review)
     is_active: bool = True
     created_at: datetime = Field(default_factory=utcnow)
 

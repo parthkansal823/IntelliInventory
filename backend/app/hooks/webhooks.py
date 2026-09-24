@@ -16,6 +16,7 @@ from app.config import get_settings
 from app.db import session_scope
 from app.hooks.bus import Event
 from app.models import Webhook, WebhookDelivery, utcnow
+from app.money import inr
 
 SIGNATURE_HEADER = "X-IntelliInventory-Signature"
 RETRY_DELAYS = (0.5, 1.5, 4.0)
@@ -38,7 +39,9 @@ def _text_summary(event: Event) -> str:
     if event.type.startswith("stock.") and "sku" in p:
         return f"[{event.type}] {p.get('name')} ({p.get('sku')}): on hand {p.get('on_hand')}"
     if event.type.startswith("po.") and "number" in p:
-        return f"[{event.type}] {p['number']} ({p.get('status')}) — {p.get('supplier', {}).get('name', '')} ${p.get('total', 0):,.2f}"
+        return (
+            f"[{event.type}] {p['number']} ({p.get('status')}) — {p.get('supplier', {}).get('name', '')} {inr(p.get('total', 0))}"
+        )
     if event.type == "report.created":
         return f"*{p.get('title')}*\n{p.get('content', '')[:2500]}"
     return f"[{event.type}] {json.dumps(p, default=str)[:300]}"

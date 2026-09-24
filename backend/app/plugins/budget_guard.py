@@ -9,12 +9,13 @@ import logging
 import os
 
 PLUGIN_NAME = "budget_guard"
-PO_BUDGET_LIMIT = float(os.environ.get("PO_BUDGET_LIMIT", "25000"))
+PO_BUDGET_LIMIT = float(os.environ.get("PO_BUDGET_LIMIT", "2000000"))  # ₹20 lakh
 log = logging.getLogger("intelliinventory.plugins.budget_guard")
 
 
 def register(ctx) -> None:
     from app.db import session_scope
+    from app.money import inr
     from app.services.inventory import find_product
 
     def large_po_needs_approval(run, tool, args):
@@ -31,7 +32,7 @@ def register(ctx) -> None:
         if total > PO_BUDGET_LIMIT:
             return {
                 "action": "require_approval",
-                "message": f"PO value ${total:,.0f} exceeds the ${PO_BUDGET_LIMIT:,.0f} budget limit.",
+                "message": f"PO value {inr(total)} exceeds the {inr(PO_BUDGET_LIMIT)} budget limit.",
             }
         return None
 
@@ -46,7 +47,7 @@ def register(ctx) -> None:
 
     def budget_status() -> dict:
         """Current purchase-order budget limit enforced by the budget_guard plugin."""
-        return {"po_budget_limit": PO_BUDGET_LIMIT, "currency": "USD"}
+        return {"po_budget_limit": PO_BUDGET_LIMIT, "currency": "INR"}
 
     ctx.register_hook("pre_tool_call", large_po_needs_approval, name="budget_guard", priority=40)
     ctx.on_event("po.received", log_received, name="budget_guard.log_received")

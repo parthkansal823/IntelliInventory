@@ -35,11 +35,13 @@ from app.models import (
     day_start,
     utcnow,
 )
+from app.money import inr
+from app.services.india import festival_multiplier
 from app.services.inventory import on_hand_map
 from app.services.purchasing import on_order_map
 
 SERVICE_LEVEL_Z = 1.65  # ~95% cycle service level
-ORDERING_COST = 50.0  # $ per purchase order
+ORDERING_COST = 4000.0  # ₹ per purchase order
 HOLDING_RATE = 0.25  # annual holding cost as a fraction of unit cost
 HISTORY_DAYS = 90
 
@@ -289,10 +291,24 @@ def product_forecast(session: Session, product_id: int, horizon: int = 30) -> di
     fc = forecast_series(series, horizon)
     today = utcnow().date()
     history = [{"date": (today - timedelta(days=HISTORY_DAYS - 1 - i)).isoformat(), "actual": v} for i, v in enumerate(series)]
-    projection = [
-        {"date": (today + timedelta(days=i + 1)).isoformat(), "forecast": f, "lower": lo, "upper": hi}
-        for i, (f, lo, hi) in enumerate(zip(fc.forecast, fc.lower, fc.upper, strict=True))
-    ]
+    product = session.get(Product, product_id)
+    category = session.get(Category, product.category_id) if product and product.category_id else None
+    projection, festivals = [], {}
+    for i, (f, lo, hi) in enumerate(zip(fc.forecast, fc.lower, fc.upper, strict=True)):
+        day = today + timedelta(days=i + 1)
+        # Festival-aware: lift the statistical forecast inside Indian festival buying windows.
+        mult, festival = festival_multiplier(category.name if category else None, day)
+        point = {
+            "date": day.isoformat(),
+            "forecast": round(f * mult, 2),
+            "lower": round(lo * mult, 2),
+            "upper": round(hi * mult, 2),
+        }
+        if festival:
+            point["festival"] = festival
+            festivals[festival] = max(festivals.get(festival, 1.0), mult)
+        projection.append(point)
+    fc.forecast = [p["forecast"] for p in projection]
     return {
         "method": fc.method,
         "mape": fc.mape,
@@ -301,6 +317,7 @@ def product_forecast(session: Session, product_id: int, horizon: int = 30) -> di
         "avg_daily_forecast": round(sum(fc.forecast) / horizon, 2) if horizon else 0,
         "history": history,
         "forecast": projection,
+        "festivals": [{"name": k, "uplift": v} for k, v in festivals.items()],
     }
 
 
@@ -401,7 +418,7 @@ def detect_anomalies(session: Session, window_days: int = 7) -> list[dict]:
                     "value": mv.quantity,
                     "baseline": round(avg, 2),
                     "z_score": None,
-                    "message": f"Write-off of {-mv.quantity} × {product.name} (${-mv.quantity * product.unit_cost:,.0f})"
+                    "message": f"Write-off of {-mv.quantity} × {product.name} ({inr(-mv.quantity * product.unit_cost)})"
                     + (f": {mv.note}" if mv.note else ""),
                 }
             )
@@ -531,7 +548,7 @@ def health_score(session: Session) -> dict:
             "label": "Capital efficiency",
             "weight": 20,
             "score": 1 - min(1.0, overstock_value / total_value * 2),
-            "detail": f"${overstock_value:,.0f} tied up in overstock",
+            "detail": f"{inr(overstock_value)} tied up in overstock",
         },
         {
             "key": "replenishment",
@@ -545,7 +562,7 @@ def health_score(session: Session) -> dict:
             "label": "Stock accuracy",
             "weight": 10,
             "score": 1 - min(1.0, shrink_value / total_value * 20),
-            "detail": f"${shrink_value:,.0f} written off in 30 days",
+            "detail": f"{inr(shrink_value)} written off in 30 days",
         },
     ]
     for c in components:

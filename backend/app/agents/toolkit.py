@@ -1,6 +1,6 @@
 """Tool registry: plain typed Python functions -> JSON-schema tools.
 
-A single registry backs the in-app agents (Hermes / Claude / offline) *and*
+A single registry backs the in-app agents (Hermes / offline) *and*
 the MCP server, so every client sees identical tools, schemas, validation and
 guardrails.
 """
@@ -78,12 +78,6 @@ class Tool:
             "type": "function",
             "function": {"name": self.name, "description": self.description, "parameters": self.parameters},
         }
-
-    def to_anthropic(self, eager: bool = True) -> dict:
-        spec = {"name": self.name, "description": self.description, "input_schema": self.parameters}
-        if eager:
-            spec["eager_input_streaming"] = True
-        return spec
 
     def to_dict(self) -> dict:
         return {

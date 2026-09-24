@@ -150,11 +150,25 @@ def po_summary(session: Session, po: PurchaseOrder) -> dict:
                 "total": round(line.quantity * line.unit_cost, 2),
             }
         )
+    from app.services.india import po_tax, upi_link  # local import avoids a cycle
+
+    tax = po_tax(session, po)
+    for item in lines:
+        item.update(tax["lines"].get(item["id"], {}))
     return {
         "id": po.id,
         "number": po.number,
         "status": po.status,
-        "supplier": {"id": supplier.id, "name": supplier.name} if supplier else None,
+        "supplier": {
+            "id": supplier.id,
+            "name": supplier.name,
+            "phone": supplier.phone,
+            "gstin": supplier.gstin,
+            "state": supplier.state,
+            "upi_id": supplier.upi_id,
+        }
+        if supplier
+        else None,
         "warehouse": {"id": warehouse.id, "code": warehouse.code, "name": warehouse.name} if warehouse else None,
         "created_by": po.created_by,
         "notes": po.notes,
@@ -164,4 +178,9 @@ def po_summary(session: Session, po: PurchaseOrder) -> dict:
         "lines": lines,
         "total": round(sum(item["total"] for item in lines), 2),
         "units": sum(item["quantity"] for item in lines),
+        "tax": {k: v for k, v in tax.items() if k != "lines"},
+        "grand_total": tax["grand_total"],
+        "upi_link": upi_link(supplier.upi_id, supplier.name, tax["grand_total"], f"PO {po.number}")
+        if supplier and supplier.upi_id
+        else None,
     }

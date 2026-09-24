@@ -20,6 +20,7 @@ from sqlmodel import select
 from app.agents.toolkit import Tool
 from app.db import session_scope
 from app.models import Product, Warehouse
+from app.money import inr
 
 from .base import AssistantMessage, Provider, ProviderEvent, ToolCall
 
@@ -64,6 +65,8 @@ HINGLISH = [
     (r"\b(sehat|health kaisi|haal)\b", " health "),
     (r"\b(sasta|discount|chhoot|sale lagao|clearance)\b", " markdown "),
     (r"\b(kitna stock|stock kitna|kitne bache)\b", " details "),
+    (r"\b(tyohar|tyohaar|tehwar|tyohar ke liye|festive season)\b", " festival "),
+    (r"\b(tax kitna|kitna tax|jiesti)\b", " gst "),
 ]
 
 
@@ -206,6 +209,8 @@ class OfflineProvider(Provider):
         if _has(text, "what if", "what-if", "simulat", "scenario") or ("%" in text and _has(text, "demand", "lead")):
             if can("simulate_policy"):
                 target = sku or self._top_sku()
+                if not target:
+                    return [], "There are no products yet — add some on the Inventory page first."
                 mult = self._multiplier(text)
                 lead = re.search(r"lead[ -]?time[^\d]{0,12}(\d{1,3})", text)
                 return [
@@ -217,7 +222,10 @@ class OfflineProvider(Provider):
                 return delegate("forecaster", "what-if simulation")
         if _has(text, "forecast", "predict", "demand", "next week", "next month", "projection"):
             if can("forecast_demand"):
-                return [_call("forecast_demand", sku=sku or self._top_sku(), horizon_days=30)], ""
+                target = sku or self._top_sku()
+                if not target:
+                    return [], "There are no products yet — add some on the Inventory page first."
+                return [_call("forecast_demand", sku=target, horizon_days=30)], ""
             if can("delegate"):
                 return delegate("forecaster", "demand forecasting")
         if _has(text, "anomal", "unusual", "suspicious", "shrink", "theft", "spike", "strange", "fraud"):
@@ -230,6 +238,45 @@ class OfflineProvider(Provider):
                 return [_call("list_suppliers")], ""
             if can("delegate"):
                 return delegate("procurement", "supplier performance")
+        festival_names = (
+            "diwali",
+            "deepavali",
+            "dhanteras",
+            "navratri",
+            "dussehra",
+            "karwa",
+            "chhath",
+            "christmas",
+            "holi",
+            "eid",
+            "rakhi",
+            "raksha",
+            "ganesh",
+            "onam",
+            "pongal",
+            "sankranti",
+            "bhai dooj",
+            "republic day",
+        )
+        if _has(text, "festival", "festive", *festival_names):
+            if can("plan_festival_stock"):
+                named = next((f for f in festival_names if f in text), None)
+                return [_call("plan_festival_stock", festival=named)], ""
+            if can("delegate"):
+                return delegate("procurement", "festival stock planning")
+        if _has(text, "hsn", "gst rate", "gst on", "gst for", "gst lagega", "kitna gst", "which gst", "tax rate"):
+            if can("suggest_gst"):
+                item = re.sub(
+                    r"\b(what|which|is|the|hsn|code|gst|rate|on|for|of|kitna|lagega|kya|hai|tax|slab|and)\b|[?]", " ", text
+                )
+                return [_call("suggest_gst", product_name=" ".join(item.split()) or request)], ""
+            if can("delegate"):
+                return delegate("analyst", "GST classification")
+        if _has(text, "gst", "itc", "input tax", "output tax", "gstr"):
+            if can("gst_summary"):
+                return [_call("gst_summary", days=30)], ""
+            if can("delegate"):
+                return delegate("analyst", "GST summary")
         if _has(text, "health", "score", "grade") and not _has(text, "supplier"):
             if can("get_health_score"):
                 return [_call("get_health_score")], ""
@@ -401,7 +448,7 @@ class OfflineProvider(Provider):
 
     @staticmethod
     def _money(v: float) -> str:
-        return f"${v:,.0f}" if abs(v) >= 100 else f"${v:,.2f}"
+        return inr(v)
 
     def _table(self, rows: list[dict], cols: list[tuple[str, str]]) -> str:
         head = "| " + " | ".join(label for label, _ in cols) + " |\n|" + "|".join("---" for _ in cols) + "|\n"
@@ -506,8 +553,8 @@ class OfflineProvider(Provider):
                     ("Stockout risk %", "stockout_probability"),
                     ("Stockout days", "expected_stockout_days"),
                     ("Avg inventory", "avg_inventory"),
-                    ("Holding $", "holding_cost"),
-                    ("Lost sales $", "lost_sales_value"),
+                    ("Holding ₹", "holding_cost"),
+                    ("Lost sales ₹", "lost_sales_value"),
                 ],
             )
             + f"\n\n_{d['runs']} Monte-Carlo runs over {d['horizon']} days._"
@@ -541,7 +588,7 @@ class OfflineProvider(Provider):
                 ("Supplier", "supplier_name"),
                 ("Status", "status"),
                 ("Lines", "lines_n"),
-                ("Total $", "total"),
+                ("Total ₹", "total"),
                 ("By", "created_by"),
             ],
         )
@@ -556,7 +603,7 @@ class OfflineProvider(Provider):
                 ("Score", "score"),
                 ("On-time %", "on_time_rate"),
                 ("Lead time (promised → actual)", "lead"),
-                ("Spend $", "spend"),
+                ("Spend ₹", "spend"),
             ],
         )
 
@@ -575,7 +622,7 @@ class OfflineProvider(Provider):
                     ("SKU", "sku"),
                     ("Name", "name"),
                     ("Excess", "excess_units"),
-                    ("Tied $", "capital_tied"),
+                    ("Tied ₹", "capital_tied"),
                     ("Discount %", "suggested_discount_pct"),
                     ("New price", "new_price"),
                     ("Days to clear", "projected_days_to_clear"),
@@ -592,8 +639,8 @@ class OfflineProvider(Provider):
                 [
                     ("Class", "class"),
                     ("SKUs", "count"),
-                    ("Monthly consumption $", "consumption_value"),
-                    ("Stock value $", "stock_value"),
+                    ("Monthly consumption ₹", "consumption_value"),
+                    ("Stock value ₹", "stock_value"),
                 ],
             )
             + "\n\n**Tip:** count class A items most often and keep their service level highest."
@@ -604,8 +651,8 @@ class OfflineProvider(Provider):
             d["categories"],
             [
                 ("Category", "category"),
-                ("Revenue $", "revenue"),
-                ("Gross profit $", "gross_profit"),
+                ("Revenue ₹", "revenue"),
+                ("Gross profit ₹", "gross_profit"),
                 ("Margin %", "margin_pct"),
                 ("Units", "units"),
             ],
@@ -623,8 +670,82 @@ class OfflineProvider(Provider):
         po = d["purchase_order"]
         lines = "\n".join(f"  - {ln['name']} ({ln['sku']}) × {ln['quantity']} = {self._money(ln['total'])}" for ln in po["lines"])
         return (
-            f"📝 Drafted **{po['number']}** for **{po['supplier']['name']}** — {po['units']} units, **{self._money(po['total'])}**:\n{lines}\n\n"
-            "It's a **draft**: a manager can approve it on the Purchase Orders page."
+            f"📝 Drafted **{po['number']}** for **{po['supplier']['name']}** — {po['units']} units, **{self._money(po['total'])}** + GST "
+            f"{self._money(po['tax']['tax'])} ({'IGST' if po['tax']['interstate'] else 'CGST + SGST'}) = **{self._money(po['grand_total'])}**:\n{lines}\n\n"
+            + (
+                "🚚 Value is above ₹50,000 — an **e-way bill** is needed when the goods move.\n\n"
+                if po["tax"]["eway_bill_required"]
+                else ""
+            )
+            + "It's a **draft**: a manager can approve it on the Purchase Orders page."
+        )
+
+    def _r_plan_festival_stock(self, d: dict) -> str:
+        f = d.get("festival")
+        if not f:
+            return "No upcoming festivals in the calendar."
+        s = d["summary"]
+        cats = ", ".join(f"{k} ×{v:g}" for k, v in list(f["categories"].items())[:4])
+        head = (
+            f"### {f['emoji']} {f['name']} — {f['date']} ({f['days_away']} days away)\n"
+            f"Buying window starts **{f['buying_starts']}**. Demand lift: {cats}.\n\n"
+            f"- {s['products_affected']} products affected · ~{s['extra_units']:,} extra units · "
+            f"~{self._money(s['extra_revenue'])} extra revenue\n"
+            f"- **{s['products_to_order']}** need stock-up · order value {self._money(s['order_value'])}"
+            + (f" · first order by **{s['earliest_order_by']}**" if s["earliest_order_by"] else "")
+            + "\n\n"
+        )
+        rows = [{**i, "when": ("⚠️ " if i["urgent"] else "") + i["order_by"]} for i in d["items"]]
+        table = (
+            self._table(
+                rows,
+                [
+                    ("SKU", "sku"),
+                    ("Name", "name"),
+                    ("Lift", "uplift"),
+                    ("Extra units", "extra_units"),
+                    ("Order qty", "suggested_order_qty"),
+                    ("Order by", "when"),
+                ],
+            )
+            if rows
+            else "✅ Stock already covers the festival demand."
+        )
+        nxt = ", ".join(f"{u['name']} ({u['days_away']}d)" for u in d.get("upcoming", [])[:5])
+        return (
+            head
+            + table
+            + (f"\n\nComing up: {nxt}." if nxt else "")
+            + "\n\nSay **“draft festival POs”** on the Insights → Festival planner tab to order in one click."
+        )
+
+    def _r_suggest_gst(self, d: dict) -> str:
+        hsn = f"HSN **{d['hsn_code']}**, " if d.get("hsn_code") else ""
+        return (
+            f"🧾 **{d['product']}** → {hsn}GST **{d['gst_rate']:g}%** ({d['confidence']} confidence)\n\n{d['reason']}.\n\n"
+            "_Rates change from time to time — confirm with your CA. Slabs can be updated in Settings → Business._"
+        )
+
+    def _r_gst_summary(self, d: dict) -> str:
+        rows = [{**r, "slab": f"{r['rate']:g}%"} for r in d["slabs"]]
+        return (
+            f"### GST estimate — last {d['days']} days\n"
+            f"- Output tax on sales: **{self._money(d['output_tax'])}**\n"
+            f"- Input tax credit (received purchases): **{self._money(d['input_tax_credit'])}**\n"
+            f"- Net payable: **{self._money(d['net_payable'])}**"
+            + (f" · credit carried forward {self._money(d['carry_forward_credit'])}" if d["carry_forward_credit"] else "")
+            + "\n\n"
+            + self._table(
+                rows,
+                [
+                    ("Slab", "slab"),
+                    ("Sales (taxable) ₹", "sales_taxable"),
+                    ("Output tax ₹", "output_tax"),
+                    ("Purchases ₹", "purchase_taxable"),
+                    ("ITC ₹", "input_tax"),
+                ],
+            )
+            + f"\n\n_{d['note']}_"
         )
 
     def _r_update_purchase_order_status(self, d: dict) -> str:
@@ -636,7 +757,8 @@ class OfflineProvider(Provider):
 
     def _r_transfer_stock(self, d: dict) -> str:
         wh = ", ".join(f"{w['code']}: {w['quantity']}" for w in d["warehouses"])
-        return f"✅ Transferred {d['quantity']} × {d['sku']}. Stock now — {wh}."
+        note = f"\n\n🚚 {d['eway']['note']}" if d.get("eway", {}).get("note") else ""
+        return f"✅ Transferred {d['quantity']} × {d['sku']}. Stock now — {wh}.{note}"
 
     def _r_update_reorder_settings(self, d: dict) -> str:
         return f"✅ Updated {d['sku']}: reorder point {d['reorder_point']}, safety stock {d['safety_stock']}."
@@ -662,12 +784,12 @@ class OfflineProvider(Provider):
         return 1.0
 
     @staticmethod
-    def _top_sku() -> str:
+    def _top_sku() -> str | None:
         from app.services.analytics import compute_metrics
 
         with session_scope() as s:
             metrics = compute_metrics(s)
-        return max(metrics, key=lambda m: m.avg_daily_demand * m.unit_price).sku
+        return max(metrics, key=lambda m: m.avg_daily_demand * m.unit_price).sku if metrics else None
 
     @staticmethod
     def help_text(agent: str) -> str:
@@ -678,6 +800,7 @@ class OfflineProvider(Provider):
             "- 📈 **forecast** demand for a product, or run a **what-if** (e.g. *what if demand for ELC-1001 rises 30%?*)\n"
             "- 🔎 detect **anomalies**, show **movements**, **ABC** classes, **margins**, **supplier** scorecards\n"
             "- 💯 score overall inventory **health**, and suggest **markdowns** for overstock\n"
+            "- 🪔 plan **festival** stock (Diwali, Dhanteras, Holi, Eid…) and estimate **GST** payable\n"
             "- ✍️ **adjust stock**, **transfer** between warehouses, start a **cycle count** (with approval)\n\n"
             'Hinglish bhi chalega — *"kya order karna hai?"*, *"kaunsa stock kam hai?"*.\n\n'
             "For free natural-language reasoning, run a Hermes model locally with Ollama (`ollama pull hermes3`)."

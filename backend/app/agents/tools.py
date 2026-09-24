@@ -15,7 +15,7 @@ from sqlmodel import select
 
 from app.db import session_scope
 from app.models import Alert, MovementType, POStatus, Product, PurchaseOrder, StockMovement, Warehouse, utcnow
-from app.services import analytics, counts, inventory, purchasing, simulator, suppliers
+from app.services import analytics, counts, india, inventory, purchasing, simulator, suppliers
 from app.services.inventory import InventoryError
 
 from .toolkit import get_actor, tools
@@ -341,6 +341,42 @@ def get_markdown_suggestions(
     return {"count": len(items), "capital_tied": round(sum(i["capital_tied"] for i in items), 2), "items": items[:10]}
 
 
+@tools.tool(tags=("read", "india", "forecast", "procurement"))
+def plan_festival_stock(
+    festival: Annotated[
+        str | None, Field(description="Festival name, e.g. Diwali, Dhanteras, Holi, Eid (default: next major one)")
+    ] = None,
+) -> dict:
+    """Indian festival demand planner: upcoming festival (Navratri, Dhanteras, Diwali, Chhath, Christmas, Sankranti,
+    Eid, Holi, Rakhi, Ganesh Chaturthi, Onam...), expected demand uplift per category, and what to order by when."""
+    with session_scope() as s:
+        plan = india.festival_plan(s, festival)
+    plan["items"] = [i for i in plan["items"] if i["suggested_order_qty"]][:12] or plan["items"][:8]
+    plan["upcoming"] = [
+        {"name": f["name"], "date": f["date"], "days_away": f["days_away"]} for f in india.festival_calendar()[:6]
+    ]
+    return plan
+
+
+@tools.tool(tags=("read", "india", "tax"))
+def gst_summary(days: Annotated[int, Field(ge=7, le=120, description="Period in days")] = 30) -> dict:
+    """GST estimate (GSTR-3B style): output tax on sales vs input tax credit on received purchases, per slab
+    (5/12/18/28%), and the net GST payable."""
+    with session_scope() as s:
+        return india.gst_report(s, days)
+
+
+@tools.tool(tags=("read", "india", "tax"))
+def suggest_gst(
+    product_name: Annotated[str, Field(description="Product name, e.g. 'Stainless steel lunch box'")],
+    category: Annotated[str | None, Field(description="Optional category")] = None,
+) -> dict:
+    """Suggest the HSN code and current GST slab for a product name (rule-based, uses the slabs configured in Settings)."""
+    from app.services.gst_ai import suggest_by_rules
+
+    return {"product": product_name, **suggest_by_rules(product_name, category)}
+
+
 @tools.tool(tags=("read", "audit"))
 def list_alerts(limit: Annotated[int, Field(ge=1, le=50)] = 20) -> dict:
     """Open alerts (stockouts, low stock, overstock, anomalies), most severe first."""
@@ -445,8 +481,10 @@ def transfer_stock(
     """Move stock between warehouses. Requires human approval."""
     with session_scope() as s:
         product = _resolve(s, sku)
-        inventory.transfer_stock(s, product.id, quantity, from_warehouse, to_warehouse, actor=get_actor())
+        out, inn = inventory.transfer_stock(s, product.id, quantity, from_warehouse, to_warehouse, actor=get_actor())
+        eway = india.transfer_eway(s, product, quantity, s.get(Warehouse, out.warehouse_id), s.get(Warehouse, inn.warehouse_id))
         return {
+            "eway": eway,
             "transferred": True,
             "sku": product.sku,
             "quantity": quantity,

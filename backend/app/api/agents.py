@@ -36,7 +36,7 @@ def overview(_: CurrentUser) -> dict:
 
 
 class ProviderIn(BaseModel):
-    provider: str = Field(pattern="^(auto|hermes|claude|offline)$")
+    provider: str = Field(pattern="^(auto|hermes|offline)$")
 
 
 @router.put("/provider")

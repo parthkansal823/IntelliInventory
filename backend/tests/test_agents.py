@@ -1,6 +1,5 @@
 import json
 
-from app.agents.providers.claude import to_anthropic_messages
 from app.agents.providers.hermes import TagStreamFilter, parse_tool_payload, to_openai_messages
 from app.agents.runtime import pending_approvals, resolve_approval, run_conversation
 from app.agents.toolkit import tools
@@ -108,15 +107,9 @@ def test_provider_message_conversion():
             "role": "assistant",
             "content": "done",
             "tool_calls": [],
-            "provider": "claude",
-            "native": [{"type": "thinking", "thinking": "", "signature": "sig"}, {"type": "text", "text": "done"}],
+            "provider": "offline",
         },
     ]
-    claude = to_anthropic_messages(transcript)
-    assert [m["role"] for m in claude] == ["user", "assistant", "user", "assistant"]
-    assert [b["type"] for b in claude[2]["content"]] == ["tool_result", "tool_result"] and claude[2]["content"][1]["is_error"]
-    assert claude[3]["content"][0]["type"] == "thinking"  # native blocks replayed verbatim
-
     native = to_openai_messages("sys", transcript, [], "native")
     assert native[2]["tool_calls"][0]["function"]["name"] == "a" and native[3]["role"] == "tool"
     prompt = to_openai_messages("sys", transcript, [tools.get("search_products")], "prompt")

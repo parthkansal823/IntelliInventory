@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlmodel import func, select
 
 from app.agents.providers import describe_providers, resolve_provider_name
-from app.api import agents, auth, automation, catalog, insights, operations
+from app.api import agents, auth, automation, catalog, india, insights, operations
 from app.config import get_settings
 from app.db import init_db, session_scope
 from app.hooks import builtin as builtin_hooks
@@ -25,7 +25,7 @@ from app.hooks.bus import bus, toggles
 from app.mcp_server import mcp
 from app.models import Alert
 from app.plugins import load_plugins
-from app.seed import seed_demo, seed_users
+from app.seed import ensure_production_setup, seed_demo
 from app.services.inventory import InventoryError
 from app.services.scheduler import scheduler_loop
 
@@ -38,7 +38,11 @@ def _bootstrap() -> None:
     settings = get_settings()
     init_db()
     with session_scope() as s:
-        seeded = seed_demo(s) if settings.seed_demo_data else (seed_users(s) or False)
+        if settings.should_seed_demo:
+            seeded = seed_demo(s)
+        else:
+            ensure_production_setup(s)
+            seeded = False
         if seeded or not s.exec(select(func.count()).select_from(Alert)).one():
             builtin_hooks.evaluate_alerts(s, emit=False)  # initial alerts without waking the autopilot
     toggles.load()
@@ -47,7 +51,9 @@ def _bootstrap() -> None:
 
 def create_app(*, start_scheduler: bool = True) -> FastAPI:
     settings = get_settings()
-    mcp_app = mcp.streamable_http_app(streamable_http_path="/")
+    # Behind a public URL the Host header is not localhost, so skip DNS-rebinding host pinning
+    # (the endpoint is still protected by the integration bearer token).
+    mcp_app = mcp.streamable_http_app(streamable_http_path="/", host="0.0.0.0" if settings.public_url else "127.0.0.1")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -67,7 +73,7 @@ def create_app(*, start_scheduler: bool = True) -> FastAPI:
     app = FastAPI(
         title="IntelliInventory API",
         version=VERSION,
-        description="AI-native inventory management: forecasting, multi-agent copilot (Hermes / Claude / offline), hooks, MCP.",
+        description="AI-native inventory management: forecasting, free multi-agent copilot (Hermes / offline), hooks, MCP.",
         lifespan=lifespan,
     )
     app.add_middleware(GZipMiddleware, minimum_size=1024)
@@ -79,13 +85,24 @@ def create_app(*, start_scheduler: bool = True) -> FastAPI:
     async def inventory_error(_: Request, exc: InventoryError) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    for module in (auth, catalog, operations, insights, agents, automation):
+    for module in (auth, catalog, operations, insights, india, agents, automation):
         app.include_router(module.router)
     app.include_router(auth.users_router)
 
     @app.get("/api/health", tags=["system"])
     def health() -> dict:
         return {"status": "ok", "version": VERSION}
+
+    @app.get("/api/system/public", tags=["system"])
+    def public_config() -> dict:
+        """Unauthenticated: what the login page needs to know."""
+        return {
+            "app_name": settings.app_name,
+            "version": VERSION,
+            "demo_mode": settings.demo_mode,
+            "demo_accounts": settings.demo_mode and settings.should_seed_demo,
+            "currency": "INR",
+        }
 
     @app.get("/api/system/info", tags=["system"])
     def info() -> dict:
@@ -94,11 +111,13 @@ def create_app(*, start_scheduler: bool = True) -> FastAPI:
             "active_provider": resolve_provider_name(),
             "providers": describe_providers(),
             "mcp": {
-                "http_url": "http://localhost:8000/mcp/",
+                "http_url": f"{(settings.public_url or 'http://localhost:8000').rstrip('/')}/mcp/",
                 "stdio_command": "uv run --directory backend python -m app.mcp_server",
                 "auth_header": "Authorization: Bearer <INTEGRATION_TOKEN>",
             },
             "database": settings.database_url.split(":")[0],
+            "demo_mode": settings.demo_mode,
+            "public_url": settings.public_url,
         }
 
     # MCP over streamable HTTP, protected by the integration token.

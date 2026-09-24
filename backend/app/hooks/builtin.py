@@ -176,5 +176,24 @@ async def autopilot_replenish(event: Event) -> None:
         log.exception("autopilot run failed for %s", p["sku"])
 
 
+# --- GST auto-fill ---------------------------------------------------------------------------
+
+
+@bus.on(
+    "product.created|catalog.imported",
+    name="gst_autofill",
+    description="AI fills missing HSN code + GST rate from the product name (marked for review)",
+    priority=96,
+)
+async def gst_autofill(event: Event) -> None:
+    from app.services.gst_ai import autofill_missing
+    from app.services.india import gst_enabled
+
+    if not await asyncio.to_thread(gst_enabled):
+        return
+    ids = [event.payload["id"]] if event.type == "product.created" and event.payload.get("id") else None
+    await autofill_missing(ids)
+
+
 def register() -> None:
     """Importing this module registers the hooks; kept for explicitness."""

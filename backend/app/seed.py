@@ -16,6 +16,7 @@ from sqlmodel import Session, func, select
 
 from app.config import get_settings
 from app.models import (
+    IST,
     Category,
     MovementType,
     POStatus,
@@ -31,6 +32,7 @@ from app.models import (
     utcnow,
 )
 from app.security import hash_password
+from app.services.india import make_gstin
 
 DAYS = 120
 
@@ -45,60 +47,63 @@ CATEGORIES = [
     ("Toys & Games", "#a855f7"),
 ]
 
+# name, email, phone, lead time, rating, state, PAN (GSTIN is derived with a valid checksum)
 SUPPLIERS = [
-    ("TechSource Global", "orders@techsource.example", "+1 415 555 0101", 10, 4.6),
-    ("Pacific Components", "sales@pacific-comp.example", "+1 206 555 0144", 14, 4.1),
-    ("OfficeHub Wholesale", "b2b@officehub.example", "+1 312 555 0190", 5, 4.4),
-    ("HomeGoods Direct", "supply@homegoods.example", "+1 646 555 0123", 7, 3.9),
-    ("FreshFarm Distributors", "orders@freshfarm.example", "+1 503 555 0177", 3, 4.8),
-    ("PlayWorld Imports", "trade@playworld.example", "+1 213 555 0165", 21, 3.7),
+    ("TechSource India Pvt Ltd", "orders@techsource.example.in", "+91 98450 10101", 10, 4.6, "Karnataka", "AAACT4821K"),
+    ("Pacific Components LLP", "sales@pacificcomp.example.in", "+91 94440 20144", 14, 4.1, "Tamil Nadu", "AAKFP6310M"),
+    ("OfficeHub Wholesale", "b2b@officehub.example.in", "+91 98110 30190", 5, 4.4, "Delhi", "AABCO7742P"),
+    ("HomeGoods Direct", "supply@homegoods.example.in", "+91 98250 40123", 7, 3.9, "Gujarat", "AADCH2291Q"),
+    ("FreshFarm Distributors", "orders@freshfarm.example.in", "+91 98200 50177", 3, 4.8, "Maharashtra", "AAFFF5503R"),
+    ("PlayWorld Imports", "trade@playworld.example.in", "+91 99200 60165", 21, 3.7, "Maharashtra", "AAGCP8816L"),
 ]
 
 WAREHOUSES = [
-    ("MAIN", "Central DC", "Mumbai"),
-    ("NORTH", "North Hub", "Delhi"),
-    ("SOUTH", "South Hub", "Bengaluru"),
+    ("MAIN", "Central DC", "Bhiwandi, Mumbai", "Maharashtra"),
+    ("NORTH", "North Hub", "Okhla, Delhi", "Delhi"),
+    ("SOUTH", "South Hub", "Hosur Road, Bengaluru", "Karnataka"),
 ]
 
-# sku, name, category, supplier, unit cost, unit price, base daily demand, MOQ, scenario, trend
+# Indian-market demo catalogue, priced in rupees (cost, selling price), with illustrative HSN codes and
+# GST 2.0 slabs (w.e.f. 22 Sep 2025: 0/5/18/40%) - confirm rates for your own products with your CA.
+# sku, name, category, supplier, unit cost ₹, selling price ₹, base daily demand, MOQ, scenario, trend, HSN, GST %
 PRODUCTS = [
-    ("ELC-1001", "Wireless Earbuds Pro", 0, 0, 28.0, 59.0, 14, 10, "low", 0.2),
-    ("ELC-1002", "Smart Watch S2", 0, 0, 65.0, 129.0, 6, 5, "shrinkage", 0.1),
-    ("ELC-1003", "Bluetooth Speaker Mini", 0, 0, 18.0, 39.0, 9, 10, "spike", 0.0),
-    ("ELC-1004", "4K Action Camera", 0, 0, 95.0, 189.0, 2, 2, "out", 0.1),
-    ("ELC-1005", "Noise-Cancelling Headphones", 0, 0, 110.0, 229.0, 4, 2, "healthy", 0.5),
-    ("ELC-1006", "Portable SSD 1TB", 0, 0, 55.0, 99.0, 5, 5, "healthy", 0.2),
-    ("ACC-2001", "USB-C Fast Charger 65W", 1, 1, 9.0, 24.0, 22, 20, "critical", 0.3),
-    ("ACC-2002", "Braided USB-C Cable 2m", 1, 1, 2.5, 9.0, 40, 50, "healthy", 0.1),
-    ("ACC-2003", "Wireless Charging Pad", 1, 1, 7.0, 19.0, 11, 10, "healthy", 0.0),
-    ("ACC-2004", 'Laptop Sleeve 14"', 1, 1, 8.0, 25.0, 7, 10, "healthy", -0.1),
-    ("ACC-2005", "Power Bank 20000mAh", 1, 1, 16.0, 39.0, 12, 10, "healthy", 0.45),
-    ("OFF-3001", "A4 Copy Paper (500 sheets)", 2, 2, 3.2, 6.5, 35, 50, "low", 0.0),
-    ("OFF-3002", "Gel Pens (Pack of 10)", 2, 2, 2.1, 5.99, 18, 20, "healthy", -0.3),
-    ("OFF-3003", "Ergonomic Office Chair", 2, 2, 120.0, 249.0, 1.2, 1, "healthy", 0.1),
-    ("OFF-3004", "Standing Desk Converter", 2, 2, 90.0, 179.0, 0.8, 1, "overstock", 0.0),
-    ("OFF-3005", "Sticky Notes Mega Pack", 2, 2, 1.8, 4.99, 20, 25, "healthy", 0.0),
-    ("HOM-4001", "Stainless Steel Water Bottle", 3, 3, 6.0, 18.0, 16, 12, "healthy", 0.25),
-    ("HOM-4002", "Ceramic Coffee Mug Set", 3, 3, 9.0, 24.0, 6, 6, "overstock", -0.1),
-    ("HOM-4003", "Non-Stick Frying Pan 28cm", 3, 3, 14.0, 34.0, 5, 5, "healthy", 0.0),
-    ("HOM-4004", "Air Fryer 5L", 3, 3, 48.0, 99.0, 3, 2, "low_on_order", 0.35),
-    ("HOM-4005", "Bamboo Cutting Board", 3, 3, 5.0, 15.0, 7, 10, "healthy", 0.0),
-    ("HLT-5001", "Hand Sanitizer 500ml", 4, 3, 1.5, 4.5, 25, 24, "spike", 0.0),
-    ("HLT-5002", "Vitamin C Serum", 4, 3, 6.0, 22.0, 8, 12, "healthy", 0.3),
-    ("HLT-5003", "Electric Toothbrush", 4, 3, 22.0, 49.0, 4, 4, "healthy", 0.1),
-    ("SPT-6001", "Yoga Mat Premium", 5, 5, 9.0, 29.0, 8, 10, "low", 0.2),
-    ("SPT-6002", "Adjustable Dumbbells 20kg", 5, 5, 55.0, 119.0, 2, 2, "healthy", 0.0),
-    ("SPT-6003", "Running Socks (3-pack)", 5, 5, 3.0, 12.0, 15, 20, "healthy", 0.1),
-    ("SPT-6004", "Insulated Sports Flask", 5, 5, 7.0, 21.0, 6, 10, "healthy", 0.0),
-    ("GRC-7001", "Organic Green Tea (100 bags)", 6, 4, 3.5, 8.99, 20, 24, "healthy", 0.1),
-    ("GRC-7002", "Arabica Coffee Beans 1kg", 6, 4, 11.0, 24.0, 12, 10, "critical", 0.2),
-    ("GRC-7003", "Almonds 500g", 6, 4, 6.0, 13.0, 14, 12, "out", 0.0),
-    ("GRC-7004", "Dark Chocolate 70% Bar", 6, 4, 1.1, 3.49, 30, 48, "shrinkage", 0.0),
-    ("GRC-7005", "Protein Bars (Box of 12)", 6, 4, 12.0, 27.0, 9, 6, "healthy", 0.4),
-    ("TOY-8001", "Building Blocks Set 500pc", 7, 5, 18.0, 45.0, 4, 4, "healthy", 0.0),
-    ("TOY-8002", "RC Racing Car", 7, 5, 22.0, 55.0, 3, 4, "overstock", -0.2),
-    ("TOY-8003", "Jigsaw Puzzle 1000pc", 7, 5, 7.0, 19.0, 5, 6, "drop", 0.0),
-    ("TOY-8004", "Plush Teddy Bear", 7, 5, 6.0, 18.0, 6, 12, "healthy", 0.1),
+    ("ELC-1001", "Wireless Earbuds (TWS, 40h)", 0, 0, 900, 1499, 14, 10, "low", 0.2, "8518", 18),
+    ("ELC-1002", "Smart Watch with Bluetooth Calling", 0, 0, 1400, 2499, 6, 5, "shrinkage", 0.1, "8517", 18),
+    ("ELC-1003", "Bluetooth Speaker 10W", 0, 0, 700, 1299, 9, 10, "spike", 0.0, "8518", 18),
+    ("ELC-1004", 'LED Smart TV 32"', 0, 0, 9500, 13999, 2, 2, "out", 0.1, "8528", 18),
+    ("ELC-1005", "Ceiling Fan 1200mm (BLDC)", 0, 0, 2300, 3499, 4, 2, "healthy", 0.5, "8414", 18),
+    ("ELC-1006", "Portable SSD 1TB", 0, 0, 4400, 6999, 5, 5, "healthy", 0.2, "8471", 18),
+    ("ACC-2001", "Fast Charger 33W Type-C", 1, 1, 350, 699, 22, 20, "critical", 0.3, "8504", 18),
+    ("ACC-2002", "Braided USB-C Cable 2m", 1, 1, 120, 299, 40, 50, "healthy", 0.1, "8544", 18),
+    ("ACC-2003", "Mobile Back Cover (Silicone)", 1, 1, 60, 199, 11, 10, "healthy", 0.0, "3926", 18),
+    ("ACC-2004", 'Laptop Sleeve 14"', 1, 1, 350, 799, 7, 10, "healthy", -0.1, "4202", 18),
+    ("ACC-2005", "Power Bank 20000mAh", 1, 1, 900, 1499, 12, 10, "healthy", 0.45, "8507", 18),
+    ("OFF-3001", "A4 Copy Paper 75 GSM (500 sheets)", 2, 2, 260, 399, 35, 50, "low", 0.0, "4802", 18),
+    ("OFF-3002", "Ball Pens (Pack of 10)", 2, 2, 45, 100, 18, 20, "healthy", -0.3, "9608", 18),
+    ("OFF-3003", "Ergonomic Mesh Office Chair", 2, 2, 4200, 6999, 1.2, 1, "healthy", 0.1, "9401", 18),
+    ("OFF-3004", "Steel Almirah 2-Door", 2, 2, 7500, 11999, 0.8, 1, "overstock", 0.0, "9403", 18),
+    ("OFF-3005", "Long Notebooks (Pack of 6)", 2, 2, 150, 240, 20, 25, "healthy", 0.0, "4820", 0),
+    ("HOM-4001", "Steel Water Bottle 1L", 3, 3, 220, 449, 16, 12, "healthy", 0.25, "7323", 5),
+    ("HOM-4002", "Pressure Cooker 5L", 3, 3, 1100, 1799, 6, 6, "overstock", -0.1, "7615", 5),
+    ("HOM-4003", "Non-Stick Tawa 28cm", 3, 3, 450, 799, 5, 5, "healthy", 0.0, "7615", 5),
+    ("HOM-4004", "Air Fryer 4.2L", 3, 3, 3600, 5999, 3, 2, "low_on_order", 0.35, "8516", 18),
+    ("HOM-4005", "Steel Lunch Box (3 Tier)", 3, 3, 250, 499, 7, 10, "healthy", 0.0, "7323", 5),
+    ("HLT-5001", "Hand Sanitizer 500ml", 4, 3, 95, 199, 25, 24, "spike", 0.0, "3808", 18),
+    ("HLT-5002", "Coconut Hair Oil 500ml", 4, 3, 120, 210, 8, 12, "healthy", 0.3, "3305", 5),
+    ("HLT-5003", "Electric Toothbrush", 4, 3, 1200, 1999, 4, 4, "healthy", 0.1, "8509", 18),
+    ("SPT-6001", "Yoga Mat 6mm", 5, 5, 350, 699, 8, 10, "low", 0.2, "9506", 5),
+    ("SPT-6002", "Cricket Bat (Kashmir Willow)", 5, 5, 1100, 1899, 2, 2, "healthy", 0.0, "9506", 5),
+    ("SPT-6003", "Cotton Sports Socks (3 pairs)", 5, 5, 120, 299, 15, 20, "healthy", 0.1, "6115", 5),
+    ("SPT-6004", "Badminton Racquet", 5, 5, 450, 899, 6, 10, "healthy", 0.0, "9506", 5),
+    ("GRC-7001", "Assam Tea 1kg", 6, 4, 380, 560, 20, 24, "healthy", 0.1, "0902", 5),
+    ("GRC-7002", "Filter Coffee Powder 1kg", 6, 4, 520, 799, 12, 10, "critical", 0.2, "0901", 5),
+    ("GRC-7003", "Almonds (Badam) 500g", 6, 4, 420, 649, 14, 12, "out", 0.0, "0802", 5),
+    ("GRC-7004", "Soan Papdi 500g", 6, 4, 90, 160, 30, 48, "shrinkage", 0.0, "2106", 5),
+    ("GRC-7005", "Basmati Rice 5kg", 6, 4, 480, 699, 9, 6, "healthy", 0.4, "1006", 5),
+    ("TOY-8001", "Building Blocks Set 500pc", 7, 5, 700, 1299, 4, 4, "healthy", 0.0, "9503", 5),
+    ("TOY-8002", "RC Racing Car", 7, 5, 800, 1499, 3, 4, "overstock", -0.2, "9503", 5),
+    ("TOY-8003", "Ludo & Snakes-Ladders Board Game", 7, 5, 150, 299, 5, 6, "drop", 0.0, "9504", 5),
+    ("TOY-8004", "Plush Teddy Bear", 7, 5, 250, 549, 6, 12, "healthy", 0.1, "9503", 5),
 ]
 
 WEEKLY = {
@@ -110,8 +115,8 @@ WEEKLY = {
 USERS = [
     ("admin@intelliinventory.dev", "Aarav Admin", Role.ADMIN),
     ("manager@intelliinventory.dev", "Meera Manager", Role.MANAGER),
-    ("staff@intelliinventory.dev", "Sam Staff", Role.STAFF),
-    ("viewer@intelliinventory.dev", "Vik Viewer", Role.VIEWER),
+    ("staff@intelliinventory.dev", "Sameer Staff", Role.STAFF),
+    ("viewer@intelliinventory.dev", "Vikram Viewer", Role.VIEWER),
 ]
 
 
@@ -137,6 +142,31 @@ def seed_users(session: Session) -> None:
     session.commit()
 
 
+def ensure_production_setup(session: Session) -> None:
+    """Actual (non-demo) deployments: one admin account and a default warehouse, nothing else."""
+    import logging
+    import secrets
+
+    settings = get_settings()
+    if not session.exec(select(func.count()).select_from(User)).one():
+        password = settings.admin_password or secrets.token_urlsafe(12)
+        session.add(
+            User(
+                email=settings.admin_email.lower(),
+                name=settings.admin_name,
+                role=Role.ADMIN,
+                password_hash=hash_password(password),
+            )
+        )
+        if not settings.admin_password:
+            logging.getLogger("intelliinventory").warning(
+                "Created admin %s with generated password: %s  (set ADMIN_PASSWORD to choose one)", settings.admin_email, password
+            )
+    if not session.exec(select(func.count()).select_from(Warehouse)).one():
+        session.add(Warehouse(code="MAIN", name="Main warehouse"))
+    session.commit()
+
+
 def seed_demo(session: Session) -> bool:
     """Populate an empty database. Returns True when data was created."""
     seed_users(session)
@@ -144,11 +174,24 @@ def seed_demo(session: Session) -> bool:
         return False
 
     rng = random.Random(42)
-    today = utcnow().date()
+    now = utcnow()
+    today = now.date()
 
     cats = [Category(name=n, color=c) for n, c in CATEGORIES]
-    sups = [Supplier(name=n, email=e, phone=p, lead_time_days=lt, rating=r) for n, e, p, lt, r in SUPPLIERS]
-    whs = [Warehouse(code=c, name=n, location=loc) for c, n, loc in WAREHOUSES]
+    sups = [
+        Supplier(
+            name=n,
+            email=e,
+            phone=p,
+            lead_time_days=lt,
+            rating=r,
+            state=st,
+            gstin=make_gstin(st, pan),
+            upi_id=f"{n.split()[0].lower()}@okicici",
+        )
+        for n, e, p, lt, r, st, pan in SUPPLIERS
+    ]
+    whs = [Warehouse(code=c, name=n, location=loc, state=st) for c, n, loc, st in WAREHOUSES]
     session.add_all(cats + sups + whs)
     session.commit()
 
@@ -159,9 +202,11 @@ def seed_demo(session: Session) -> bool:
 
     def at(day_index: int, hour: int | None = None) -> datetime:
         d = today - timedelta(days=DAYS - 1 - day_index)
-        return datetime.combine(d, time(hour if hour is not None else rng.randint(9, 20), rng.randint(0, 59)), tzinfo=UTC)
+        # shop hours in India (9 am - 9 pm IST) - stored as UTC like every other timestamp
+        shop_time = time(hour if hour is not None else rng.randint(9, 20), rng.randint(0, 59))
+        return min(datetime.combine(d, shop_time, tzinfo=IST).astimezone(UTC), now)
 
-    for i, (sku, name, ci, si, cost, price, base, moq, scenario, trend) in enumerate(PRODUCTS):
+    for i, (sku, name, ci, si, cost, price, base, moq, scenario, trend, hsn, gst) in enumerate(PRODUCTS):
         supplier = sups[si]
         lead = supplier.lead_time_days
         home = whs[0] if i % 5 < 3 else whs[1] if i % 5 == 3 else whs[2]
@@ -172,6 +217,9 @@ def seed_demo(session: Session) -> bool:
             supplier_id=supplier.id,
             unit_cost=cost,
             unit_price=price,
+            hsn_code=hsn,
+            gst_rate=gst,
+            gst_source="manual",
             min_order_qty=moq,
             description=f"{name} — {CATEGORIES[ci][0].lower()} item supplied by {supplier.name}.",
             created_at=at(0, 8) - timedelta(days=1),
