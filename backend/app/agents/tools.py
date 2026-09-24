@@ -322,6 +322,25 @@ def margin_report(days: Annotated[int, Field(ge=7, le=120)] = 30) -> dict:
         return {"days": days, "categories": suppliers.margin_by_category(s, days)}
 
 
+@tools.tool(tags=("read", "analytics"))
+def get_health_score() -> dict:
+    """Overall inventory health score (0-100, graded A-E) with an explainable breakdown: availability,
+    service risk, capital efficiency, replenishment coverage and stock accuracy."""
+    with session_scope() as s:
+        return analytics.health_score(s)
+
+
+@tools.tool(tags=("read", "analytics", "pricing"))
+def get_markdown_suggestions(
+    clear_days: Annotated[int, Field(ge=14, le=180, description="Days to clear the excess")] = 60,
+) -> dict:
+    """Smart markdown advisor: overstocked / slow-moving items, the capital tied up, and the discount that
+    clears the excess in time without pricing below cost + 5% (assumes price elasticity of -2)."""
+    with session_scope() as s:
+        items = analytics.markdown_suggestions(s, clear_days)
+    return {"count": len(items), "capital_tied": round(sum(i["capital_tied"] for i in items), 2), "items": items[:10]}
+
+
 @tools.tool(tags=("read", "audit"))
 def list_alerts(limit: Annotated[int, Field(ge=1, le=50)] = 20) -> dict:
     """Open alerts (stockouts, low stock, overstock, anomalies), most severe first."""

@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Semantic surface/text tokens (swap in .dark) */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-soft: var(--brand-soft);
+
+  /* Status palette (reserved; always paired with icon + label) */
+  --color-good: #0ca30c;
+  --color-warning: #fab219;
+  --color-serious: #ec835a;
+  --color-critical: #d03b3b;
+
+  --animate-fade-in: fade-in 0.25s ease-out;
+  --animate-slide-in: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes fade-in { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
+@keyframes slide-in { from { transform: translateX(100%) } to { transform: none } }
+@keyframes pulse-dot { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
+
+:root {
+  color-scheme: light;
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-2: #f3f3f5;
+  --border: #e6e6ea;
+  --fg: #111114;
+  --muted: #5d5d66;
+  --subtle: #8b8b94;
+  --brand: #4f46e5;
+  --brand-fg: #ffffff;
+  --brand-soft: #eef0ff;
+
+  /* Chart roles - validated categorical slots (dataviz reference palette) */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-grid: #ececef;
+  --chart-axis: #8b8b94;
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: #0b0b0f;
+  --surface: #17171a;
+  --surface-2: #1f1f24;
+  --border: #2a2a31;
+  --fg: #f4f4f6;
+  --muted: #a4a4ad;
+  --subtle: #74747d;
+  --brand: #818cf8;
+  --brand-fg: #0b0b0f;
+  --brand-soft: #1e1b3a;
+
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-grid: #26262c;
+  --chart-axis: #74747d;
+}
+
+html, body, #root { height: 100%; }
+body {
+  @apply bg-bg text-fg font-sans antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+* { @apply border-border; }
+::selection { background: color-mix(in oklab, var(--brand) 25%, transparent); }
+
+/* Thin, unobtrusive scrollbars */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+/* Markdown rendered by agents */
+.prose-chat { @apply text-[0.9rem] leading-relaxed; }
+.prose-chat p { @apply my-2; }
+.prose-chat h1, .prose-chat h2, .prose-chat h3 { @apply mt-3 mb-1.5 font-semibold text-fg; }
+.prose-chat h3 { @apply text-[0.95rem]; }
+.prose-chat ul { @apply my-2 list-disc pl-5 space-y-0.5; }
+.prose-chat ol { @apply my-2 list-decimal pl-5 space-y-0.5; }
+.prose-chat strong { @apply font-semibold text-fg; }
+.prose-chat code { @apply rounded bg-surface-2 px-1 py-0.5 font-mono text-[0.8em]; }
+.prose-chat pre { @apply my-2 overflow-x-auto rounded-lg bg-surface-2 p-3 text-xs; }
+.prose-chat pre code { @apply bg-transparent p-0; }
+.prose-chat table { @apply my-2 w-full border-collapse text-xs; }
+.prose-chat th { @apply border-b border-border px-2 py-1.5 text-left font-medium text-muted whitespace-nowrap; }
+.prose-chat td { @apply border-b border-border/60 px-2 py-1.5 tabular-nums; }
+.prose-chat em { @apply text-muted; }
+
+/* Print: purchase-order sheets */
+@media print {
+  body { background: white !important; color: black !important; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+}
+.print-only { display: none; }

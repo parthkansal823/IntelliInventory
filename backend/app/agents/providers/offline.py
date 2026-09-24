@@ -50,6 +50,30 @@ def find_sku(text: str) -> str | None:
     return hit[2] if hit else None
 
 
+# Common Hinglish phrasings mapped onto English intent keywords, so the free planner
+# understands e.g. "kya order karna hai?" or "kaunsa stock kam hai?".
+HINGLISH = [
+    (r"\b(kam|kami|thoda bacha)\b", " low "),
+    (r"\b(khatam|khtm|nahi bacha|zero stock)\b", " out of stock "),
+    (r"\b(mangana|mangwana|mangwao|order karna|order karo|kharidna)\b", " reorder "),
+    (r"\b(banao|bana do|taiyar karo)\b", " create "),
+    (r"\b(anumaan|andaza|bhavishya|agle hafte|agle mahine)\b", " forecast "),
+    (r"\b(gadbad|chori|ajeeb|galat)\b", " anomaly "),
+    (r"\b(munafa|fayda|profit kitna)\b", " margin "),
+    (r"\b(aaj ka|aaj ki|subah ki)\b", " briefing "),
+    (r"\b(sehat|health kaisi|haal)\b", " health "),
+    (r"\b(sasta|discount|chhoot|sale lagao|clearance)\b", " markdown "),
+    (r"\b(kitna stock|stock kitna|kitne bache)\b", " details "),
+]
+
+
+def normalize(text: str) -> str:
+    text = text.lower()
+    for pattern, repl in HINGLISH:
+        text = re.sub(pattern, repl, text)
+    return text
+
+
 def _has(text: str, *words: str) -> bool:
     return any(re.search(rf"\b{w}", text) for w in words)
 
@@ -94,7 +118,7 @@ class OfflineProvider(Provider):
     # -- planning ---------------------------------------------------------------------
 
     def plan(self, request: str, available: set[str], agent: str) -> tuple[list[ToolCall], str]:
-        text = request.lower()
+        text = normalize(request)
         sku = find_sku(request)
         _, warehouses = _catalog()
         wh_mentions = [w for w in warehouses if re.search(rf"\b{w.lower()}\b", text)]
@@ -206,6 +230,16 @@ class OfflineProvider(Provider):
                 return [_call("list_suppliers")], ""
             if can("delegate"):
                 return delegate("procurement", "supplier performance")
+        if _has(text, "health", "score", "grade") and not _has(text, "supplier"):
+            if can("get_health_score"):
+                return [_call("get_health_score")], ""
+            if can("delegate"):
+                return delegate("analyst", "inventory health score")
+        if _has(text, "markdown", "overstock", "dead stock", "slow mov", "excess", "liquidat", "promotion"):
+            if can("get_markdown_suggestions"):
+                return [_call("get_markdown_suggestions", clear_days=60)], ""
+            if can("delegate"):
+                return delegate("analyst", "markdown pricing")
         if _has(text, "abc", "pareto", "classif"):
             if can("abc_analysis"):
                 return [_call("abc_analysis")], ""
@@ -275,7 +309,7 @@ class OfflineProvider(Provider):
             return [], ""
         last = results[-1]
         if last["name"] == "get_reorder_recommendations" and "create_purchase_order" in available and not last.get("is_error"):
-            text = request.lower()
+            text = normalize(request)
             if not (_has(text, "create", "draft", "raise", "make", "place", "prepare", "generate", "po")):
                 return [], ""
             items = json.loads(last["content"]).get("items", [])
@@ -305,7 +339,7 @@ class OfflineProvider(Provider):
 
     def compose(self, request: str, results: list[dict], agent: str) -> str:
         names = {r["name"] for r in results}
-        if _has(request.lower(), "briefing", "digest", "morning report") and "get_inventory_summary" in names:
+        if _has(normalize(request), "briefing", "digest", "morning report") and "get_inventory_summary" in names:
             return self._briefing({r["name"]: json.loads(r["content"]) for r in results if not r.get("is_error")})
         parts = []
         for r in results:
@@ -526,6 +560,30 @@ class OfflineProvider(Provider):
             ],
         )
 
+    def _r_get_health_score(self, d: dict) -> str:
+        bars = "\n".join(f"- **{c['label']}** {c['score']:.0f}/100 — {c['detail']}" for c in d["components"])
+        return f"### Inventory health: **{d['score']:.0f}/100 (grade {d['grade']})**\n{bars}\n\n**{d['focus']}**"
+
+    def _r_get_markdown_suggestions(self, d: dict) -> str:
+        if not d["items"]:
+            return "✅ No overstock worth marking down right now."
+        return (
+            f"**{d['count']}** item(s) tie up **{self._money(d['capital_tied'])}** in excess stock:\n\n"
+            + self._table(
+                d["items"],
+                [
+                    ("SKU", "sku"),
+                    ("Name", "name"),
+                    ("Excess", "excess_units"),
+                    ("Tied $", "capital_tied"),
+                    ("Discount %", "suggested_discount_pct"),
+                    ("New price", "new_price"),
+                    ("Days to clear", "projected_days_to_clear"),
+                ],
+            )
+            + "\n\n_Discounts never go below cost + 5%. Assumes price elasticity of −2._"
+        )
+
     def _r_abc_analysis(self, d: dict) -> str:
         return (
             "### ABC analysis\n\n"
@@ -619,6 +677,8 @@ class OfflineProvider(Provider):
             "- 🛒 show **what to reorder** and **draft purchase orders**\n"
             "- 📈 **forecast** demand for a product, or run a **what-if** (e.g. *what if demand for ELC-1001 rises 30%?*)\n"
             "- 🔎 detect **anomalies**, show **movements**, **ABC** classes, **margins**, **supplier** scorecards\n"
+            "- 💯 score overall inventory **health**, and suggest **markdowns** for overstock\n"
             "- ✍️ **adjust stock**, **transfer** between warehouses, start a **cycle count** (with approval)\n\n"
+            'Hinglish bhi chalega — *"kya order karna hai?"*, *"kaunsa stock kam hai?"*.\n\n'
             "For free natural-language reasoning, run a Hermes model locally with Ollama (`ollama pull hermes3`)."
         )

@@ -61,7 +61,7 @@ AGENTS: dict[str, AgentSpec] = {
             "deep analysis (ABC, margins, movement history) → analyst. You may delegate to several specialists in "
             "sequence, then synthesise one clear answer. Don't repeat the specialist's answer verbatim if it is long."
         ),
-        tool_names=READ_CORE + ["get_low_stock_items", "get_reorder_recommendations", "list_purchase_orders"],
+        tool_names=READ_CORE + ["get_low_stock_items", "get_reorder_recommendations", "list_purchase_orders", "get_health_score"],
         color="#6366f1",
         icon="sparkles",
         can_delegate=True,
@@ -71,7 +71,15 @@ AGENTS: dict[str, AgentSpec] = {
         title="Analyst",
         description="KPIs, search, ABC classes, margins and movement history.",
         instructions="You analyse inventory health and sales performance and explain what the numbers mean for the business.",
-        tool_names=READ_CORE + ["abc_analysis", "margin_report", "get_stock_movements", "get_low_stock_items"],
+        tool_names=READ_CORE
+        + [
+            "abc_analysis",
+            "margin_report",
+            "get_stock_movements",
+            "get_low_stock_items",
+            "get_health_score",
+            "get_markdown_suggestions",
+        ],
         color="#0ea5e9",
         icon="chart",
     ),

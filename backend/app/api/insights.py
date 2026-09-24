@@ -28,6 +28,16 @@ def forecast(session: DbSession, product_id: int, _: CurrentUser, horizon: int =
     return analytics.product_forecast(session, product_id, max(7, min(horizon, 90)))
 
 
+@router.get("/analytics/health")
+def health(session: DbSession, _: CurrentUser) -> dict:
+    return analytics.health_score(session)
+
+
+@router.get("/analytics/markdowns")
+def markdowns(session: DbSession, _: CurrentUser, clear_days: int = 60) -> list[dict]:
+    return analytics.markdown_suggestions(session, max(14, min(clear_days, 180)))
+
+
 @router.get("/analytics/abc")
 def abc(session: DbSession, _: CurrentUser) -> dict:
     return analytics.abc_summary(session)

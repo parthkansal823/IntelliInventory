@@ -485,3 +485,118 @@ def dashboard(session: Session) -> dict:
             for m in movers
         ],
     }
+
+
+# --- Unique insights ---------------------------------------------------------------------
+
+PRICE_ELASTICITY = -2.0  # assumed: a 10% price cut lifts unit demand ~20%
+
+
+def health_score(session: Session) -> dict:
+    """One 0-100 'inventory health' score with an explainable breakdown."""
+    metrics = compute_metrics(session)
+    n = len(metrics) or 1
+    total_value = sum(m.stock_value for m in metrics) or 1.0
+    out = sum(1 for m in metrics if m.status == "out")
+    at_risk = sum(1 for m in metrics if m.status in ("critical", "low"))
+    overstock_value = sum(m.stock_value for m in metrics if m.status == "overstock")
+    needs = [m for m in metrics if m.status in ("out", "critical", "low")]
+    covered = sum(1 for m in needs if m.on_order > 0)
+    since = day_start(utcnow().date() - timedelta(days=30))
+    shrink_value = sum(
+        -mv.quantity * p.unit_cost
+        for mv, p in session.exec(
+            select(StockMovement, Product)
+            .join(Product, Product.id == StockMovement.product_id)
+            .where(StockMovement.type == MovementType.ADJUSTMENT, StockMovement.quantity < 0, StockMovement.created_at >= since)
+        )
+    )
+    components = [
+        {
+            "key": "availability",
+            "label": "Availability",
+            "weight": 35,
+            "score": 1 - out / n,
+            "detail": f"{n - out} of {n} SKUs in stock",
+        },
+        {
+            "key": "service_risk",
+            "label": "Service risk",
+            "weight": 25,
+            "score": 1 - at_risk / n,
+            "detail": f"{at_risk} SKUs below reorder point",
+        },
+        {
+            "key": "capital",
+            "label": "Capital efficiency",
+            "weight": 20,
+            "score": 1 - min(1.0, overstock_value / total_value * 2),
+            "detail": f"${overstock_value:,.0f} tied up in overstock",
+        },
+        {
+            "key": "replenishment",
+            "label": "Replenishment coverage",
+            "weight": 10,
+            "score": covered / len(needs) if needs else 1.0,
+            "detail": f"{covered} of {len(needs)} at-risk SKUs already on order",
+        },
+        {
+            "key": "accuracy",
+            "label": "Stock accuracy",
+            "weight": 10,
+            "score": 1 - min(1.0, shrink_value / total_value * 20),
+            "detail": f"${shrink_value:,.0f} written off in 30 days",
+        },
+    ]
+    for c in components:
+        c["score"] = round(max(0.0, min(1.0, c["score"])) * 100, 1)
+    score = round(sum(c["score"] * c["weight"] for c in components) / 100, 1)
+    grade = "A" if score >= 90 else "B" if score >= 80 else "C" if score >= 70 else "D" if score >= 60 else "E"
+    weakest = min(components, key=lambda c: c["score"])
+    return {
+        "score": score,
+        "grade": grade,
+        "components": components,
+        "focus": f"Biggest lever: {weakest['label'].lower()} — {weakest['detail']}.",
+    }
+
+
+def markdown_suggestions(session: Session, clear_days: int = 60) -> list[dict]:
+    """Smart markdown advisor: discounts that clear excess stock without selling below cost."""
+    out = []
+    for m in compute_metrics(session):
+        target = m.reorder_point + max(m.eoq, math.ceil(m.avg_daily_demand * 30))
+        excess = m.on_hand - target
+        cover = m.days_of_cover if m.days_of_cover is not None else (999 if m.on_hand else 0)
+        if excess <= 0 or cover < 75 or m.unit_price <= 0:
+            continue
+        base = max(m.avg_daily_demand, 0.05)
+        needed = excess / clear_days + base  # daily sales needed to clear in time
+        uplift = needed / base - 1
+        discount = min(0.5, uplift / -PRICE_ELASTICITY)
+        floor = max(0.0, 1 - (m.unit_cost * 1.05) / m.unit_price)  # never below cost + 5%
+        applied = round(min(discount, floor), 3)
+        new_daily = base * (1 + -PRICE_ELASTICITY * applied)
+        new_price = round(m.unit_price * (1 - applied), 2)
+        out.append(
+            {
+                "product_id": m.product_id,
+                "sku": m.sku,
+                "name": m.name,
+                "category": m.category,
+                "on_hand": m.on_hand,
+                "days_of_cover": cover,
+                "excess_units": int(excess),
+                "capital_tied": round(excess * m.unit_cost, 2),
+                "suggested_discount_pct": round(applied * 100, 1),
+                "new_price": new_price,
+                "current_price": m.unit_price,
+                "projected_days_to_clear": round(excess / max(new_daily, 0.01)) if applied else None,
+                "margin_after_pct": round((new_price - m.unit_cost) / new_price * 100, 1) if new_price else 0,
+                "capped_by_cost": discount > floor,
+                "action": "Bundle or transfer instead — discount floor reached"
+                if discount > floor and applied < 0.05
+                else f"Run a {applied:.0%} markdown for ~{clear_days} days",
+            }
+        )
+    return sorted(out, key=lambda r: -r["capital_tied"])
