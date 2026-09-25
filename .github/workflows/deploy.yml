@@ -1,9 +1,8 @@
 # CD - runs only after CI passes on main (or manually from the Actions tab).
 #
-# 1. Demo link (Render, free): nothing to do here - render.yaml sets autoDeployTrigger: checksPass, so Render
-#    redeploys by itself once these same CI checks are green.
-# 2. Your real shop (own server with Hermes + Postgres, e.g. Oracle Cloud Always Free): this job SSHes in and runs
-#    deploy/server/update.sh with the exact commit that passed CI.
+# Your server (e.g. Oracle Cloud Always Free) runs the real shop + the public demo (compose profile "demo"), both with
+# Hermes. This job SSHes in and runs deploy/server/update.sh with the exact commit that passed CI.
+# (Optional Render demo: render.yaml deploys by itself after CI passes - autoDeployTrigger: checksPass.)
 #    One-time: GitHub repo -> Settings -> Secrets and variables -> Actions -> New repository secret:
 #      SERVER_HOST     server IP address
 #      SERVER_USER     SSH user (Oracle Ubuntu: ubuntu)
@@ -35,11 +34,11 @@ jobs:
           SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           if [ -z "$SERVER_HOST" ] || [ -z "$SERVER_SSH_KEY" ]; then
-            echo "::notice::No SERVER_HOST / SERVER_SSH_KEY secrets - skipping the real-shop deploy (the Render demo deploys by itself)."
+            echo "::notice::No SERVER_HOST / SERVER_SSH_KEY secrets - skipping the server deploy. See docs/TUTORIAL.md section 15."
             exit 0
           fi
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
             "${SERVER_USER:-ubuntu}@$SERVER_HOST" "bash ~/IntelliInventory/deploy/server/update.sh $SHA"
-          echo "### ✅ Real shop updated to \`${SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ✅ Shop + demo updated to \`${SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"

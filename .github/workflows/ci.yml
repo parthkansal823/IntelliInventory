@@ -42,7 +42,7 @@ jobs:
         run: |
           cp deploy/server/.env.example deploy/server/.env
           docker compose -f deploy/server/docker-compose.yml config -q
-          COMPOSE_PROFILES=tunnel docker compose -f deploy/server/docker-compose.yml config -q
+          COMPOSE_PROFILES=https,demo,tunnel docker compose -f deploy/server/docker-compose.yml config -q
           bash -n deploy/server/setup.sh && bash -n deploy/server/update.sh
       - name: Smoke test the image (demo mode, like Render)
         run: |

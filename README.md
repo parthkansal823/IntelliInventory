@@ -124,24 +124,24 @@ Production build without Docker: `make build`, then `make api`. FastAPI serves t
 ## Free deployment (demo link + your real shop) — CI/CD
 
 ```
-push to main → CI (tests, lint, build, Docker smoke test) → ✅ → Render demo redeploys (autoDeployTrigger: checksPass)
-                                                            └→ Deploy workflow → your server over SSH (that exact commit)
+push to main → CI (tests, lint, build, Docker smoke test) → ✅ → Deploy workflow → your server over SSH (that exact commit)
 ```
 
-| | Where (free) | AI | Data |
+**Recommended: one free Oracle Cloud Always Free server (2 ARM CPU / 12 GB) for both links, both with Hermes.**
+
+| | URL | AI | Data |
 |---|---|---|---|
-| **Demo link** | [Render](https://render.com) free web service via `render.yaml` (no card) | offline planner (512 MB RAM) | resets on restart |
-| **Your shop** | Oracle Cloud Always Free (2 ARM CPU / 12 GB) or any Linux box / your PC | **Hermes** via Ollama | PostgreSQL |
+| **Your shop** | `https://<ip>.sslip.io` | Hermes via Ollama | PostgreSQL |
+| **Public demo** | `https://demo.<ip>.sslip.io` (compose profile `demo`) | Hermes (shared) | fresh sample shop on every deploy |
 
-- **Demo:** Render → New → Blueprint → pick this repo → Apply.
-- **Shop:** on a fresh Ubuntu server run
-  `curl -fsSL https://raw.githubusercontent.com/parthkansal823/IntelliInventory/main/deploy/server/setup.sh | bash`
-  (Docker, app + Ollama/Hermes + Postgres + Caddy auto-HTTPS on `<ip>.sslip.io`). Then add GitHub secrets
-  `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY` and every green CI run on `main` deploys it.
-- **No card / no server:** run it on your PC and share it with `cloudflared tunnel --url http://localhost:8000`.
+- On a fresh Ubuntu server: `curl -fsSL https://raw.githubusercontent.com/parthkansal823/IntelliInventory/main/deploy/server/setup.sh | bash`
+  (Docker; app + demo + Ollama/Hermes + Postgres + Caddy auto-HTTPS on sslip.io).
+- Add GitHub secrets `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY` → every green CI run on `main` deploys.
+- No server? Demo only on **Koyeb** free (Dockerfile, port 8000) or **Render** (`render.yaml`, if your workspace has free
+  hours left); shop on your own PC shared with `cloudflared tunnel --url http://localhost:8000`.
 
-Step-by-step with screenshots-level detail: [tutorial §15](docs/TUTORIAL.md#15-free-deploy--2-links). Forgot the admin
-password? `uv run python -m app.cli reset-password <email> <new>`.
+Step by step: [tutorial §15](docs/TUTORIAL.md#15-free-deploy--2-links). Forgot the admin password?
+`uv run python -m app.cli reset-password <email> <new>`.
 
 ## AI providers: free first
 

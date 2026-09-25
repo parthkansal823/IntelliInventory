@@ -17,8 +17,11 @@ if [ ! -f .env ]; then
   echo "==> Your shop login (you can change the password later in the app)"
   read -rp "   Admin email: " ADMIN_EMAIL < /dev/tty
   read -rsp "   Admin password (min 8 chars): " ADMIN_PASSWORD < /dev/tty; echo
+  read -rp "   Public demo link bhi isi server pe chahiye? (Y/n): " WANT_DEMO < /dev/tty
   IP="$(curl -fsS https://api.ipify.org || hostname -I | awk '{print $1}')"
   DOMAIN="${IP//./-}.sslip.io"
+  PROFILES=https
+  [[ "${WANT_DEMO:-y}" =~ ^[Nn] ]] || PROFILES=https,demo
   rnd() { openssl rand -hex 24; }
   cat > .env <<ENV
 DEMO_MODE=false
@@ -29,8 +32,9 @@ SECRET_KEY=$(rnd)
 INTEGRATION_TOKEN=$(rnd)
 POSTGRES_PASSWORD=$(rnd)
 HERMES_MODEL=hermes3:3b
-COMPOSE_PROFILES=https
+COMPOSE_PROFILES=$PROFILES
 DOMAIN=$DOMAIN
+DEMO_DOMAIN=demo.$DOMAIN
 PUBLIC_URL=https://$DOMAIN
 ENV
   chmod 600 .env
@@ -50,7 +54,8 @@ sudo docker compose up -d --build
 # shellcheck disable=SC1091
 . ./.env
 echo
-echo "✅ Done. Open: ${PUBLIC_URL:-http://$(hostname -I | awk '{print $1}'):8000}"
+echo "✅ Done. Your shop: ${PUBLIC_URL:-http://$(hostname -I | awk '{print $1}'):8000}"
+[[ "${COMPOSE_PROFILES:-}" == *demo* ]] && echo "   Public demo: https://${DEMO_DOMAIN}   (Parth / Ananya, password demo1234)"
 echo "   Login: $ADMIN_EMAIL   (Hermes AI becomes available once the model download finishes)"
 echo "   Tunnel instead of HTTPS? set COMPOSE_PROFILES=tunnel in .env, then:"
 echo "   sudo docker compose up -d && sudo docker compose logs tunnel | grep trycloudflare"

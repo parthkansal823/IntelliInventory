@@ -3,12 +3,15 @@
 #   first time:  bash deploy/server/setup.sh        updates: bash deploy/server/update.sh   (the Deploy workflow runs it)
 # Profiles (set COMPOSE_PROFILES in .env):
 #   https  -> Caddy with automatic Let's Encrypt HTTPS on $DOMAIN (e.g. 1-2-3-4.sslip.io - free, no domain needed)
+#   demo   -> a second, public DEMO copy (sample shop, Parth/Ananya logins) on $DEMO_DOMAIN, sharing the same Hermes AI;
+#             its data resets on every restart/deploy
 #   tunnel -> Cloudflare quick tunnel: free https://<random>.trycloudflare.com link, no open ports (URL changes on restart)
 name: intelliinventory
 
 services:
   app:
     build: { context: ../.., dockerfile: Dockerfile }
+    image: intelliinventory-app
     restart: unless-stopped
     env_file: .env
     environment:
@@ -20,6 +23,24 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       ollama: { condition: service_started }
+
+  demo:
+    image: intelliinventory-app
+    profiles: [demo]
+    restart: unless-stopped
+    environment:
+      DEMO_MODE: "true"
+      DATABASE_URL: sqlite:////data/demo.db
+      OLLAMA_URL: http://ollama:11434
+      HERMES_MODEL: ${HERMES_MODEL:-hermes3:3b}
+      SECRET_KEY: demo-${SECRET_KEY}
+      INTEGRATION_TOKEN: demo-${INTEGRATION_TOKEN}
+      PUBLIC_URL: https://${DEMO_DOMAIN:-demo.localhost}
+    # fresh sample shop on every start
+    command: ["sh", "-c", "rm -f /data/demo.db*; alembic upgrade head || true; exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
+    ports: ["${DEMO_PORT:-8001}:8000"]
+    volumes: [demo-data:/data]
+    depends_on: [app, ollama]
 
   postgres:
     image: postgres:17-alpine
@@ -53,7 +74,9 @@ services:
     profiles: [https]
     restart: unless-stopped
     ports: ["80:80", "443:443"]
-    environment: { DOMAIN: "${DOMAIN:-localhost}" }
+    environment:
+      DOMAIN: "${DOMAIN:-localhost}"
+      DEMO_DOMAIN: "${DEMO_DOMAIN:-demo.localhost}"
     volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy:/data]
     depends_on: [app]
 
@@ -66,6 +89,7 @@ services:
 
 volumes:
   app-data:
+  demo-data:
   pg:
   ollama:
   caddy:

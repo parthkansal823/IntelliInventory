@@ -1,5 +1,11 @@
-# Automatic HTTPS (Let's Encrypt) for $DOMAIN, e.g. 129-154-10-20.sslip.io
+# Automatic HTTPS (Let's Encrypt) - e.g. DOMAIN=129-154-10-20.sslip.io, DEMO_DOMAIN=demo.129-154-10-20.sslip.io
 {$DOMAIN} {
 	encode gzip
 	reverse_proxy app:8000
+}
+
+# Public demo (only when the "demo" profile is on)
+{$DEMO_DOMAIN} {
+	encode gzip
+	reverse_proxy demo:8000
 }

@@ -343,29 +343,34 @@ Asli AI (Hermes, Nous Research) chahiye toh — **free, aapke computer pe:**
 
 > **Note:** Hugging Face ab Docker apps ke liye PRO (paid) maangta hai, isliye hum use **nahi** karte.
 
+**Sabse achha (recommended): ek hi free Oracle server pe dono links — Hermes AI dono mein.**
+
 | Link | Kahan (free) | AI | Data |
 |---|---|---|---|
-| **Demo** — sabko dikhane ke liye | **Render** (card nahi chahiye) | offline planner (Render free mein sirf 512 MB RAM — Hermes fit nahi hota) | har deploy/restart pe fresh sample data |
-| **Asli dukaan** | **Oracle Cloud Always Free** server (2 CPU, 12 GB RAM) — ya **aapka apna PC** | **Hermes** (Ollama) ✅ | PostgreSQL, permanent |
+| **Asli dukaan** — `https://<ip>.sslip.io` | Oracle Cloud Always Free server (2 CPU, 12 GB RAM) | **Hermes** ✅ | PostgreSQL, permanent |
+| **Demo** — `https://demo.<ip>.sslip.io` | **usi server pe** (setup poochta hai "demo link bhi chahiye?") | **Hermes** ✅ | sample data, har deploy pe fresh |
+
+Server nahi banana? Demo ke liye **A (Koyeb / Render)** aur dukaan ke liye **C (apna PC)** dekho.
 
 ### CI/CD — sab automatic
 
 ```
 Aap main pe push karo → CI (tests, lint, build, Docker smoke test) → ✅ pass?
-                                                                     ├─→ Render demo khud update
-                                                                     └─→ Deploy workflow → aapka server (SSH) update
+                                                                     └─→ Deploy workflow → server (SSH) → dukaan + demo dono update
                          ❌ fail? → kuch deploy nahi hota, purana version chalta rehta hai
 ```
 
-### A. Demo link — Render (5 minute, card nahi)
+### A. Sirf demo, bina server (optional)
 
-1. https://render.com → **Get Started** → **GitHub se sign up** karo.
-2. Dashboard → **New +** → **Blueprint** → apna `IntelliInventory` repo choose karo (GitHub access maange toh do).
-3. Render `render.yaml` padh lega → **Apply** / **Deploy Blueprint** dabao.
-4. 5–10 minute mein build → link milega jaise `https://intelliinventory-demo.onrender.com`. Parth / Ananya se login.
+- **Koyeb** (free: 1 app, 512 MB, card nahi maangta — sign-up ke waqt check kar lena): https://www.koyeb.com → GitHub se
+  sign up → **Create Web Service → GitHub** → repo `IntelliInventory` → Builder: **Dockerfile** → Port `8000` →
+  Environment variables: `DEMO_MODE=true`, `AI_PROVIDER=offline` → Instance **Free** → Deploy. `main` pe push karte hi
+  khud update hota hai. 1 ghante koi na khole toh so jaata hai.
+- **Render**: sirf tab jab aapke Render workspace mein free hours bache hon (750 ghante/mahina *poore* workspace ke liye —
+  koi dusra always-on project ho toh hours khatam ho jaate hain). Render → New → Blueprint → repo → Apply
+  (`render.yaml` ready hai, CI pass hone ke baad hi deploy karta hai).
 
-Bas! Ab `main` pe har push ke baad, **CI pass hone par** Render khud naya version daal dega.
-Free plan: 15 min koi na khole toh so jaata hai (agli baar ~1 min lagta hai), aur data reset hota rehta hai — demo ke liye theek.
+Dono mein RAM kam hai, isliye demo mein Hermes ki jagah offline planner chalega.
 
 ### B. Asli dukaan — Oracle Cloud Always Free (Hermes ke saath)
 
@@ -389,8 +394,11 @@ Server pe yeh paste karo:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/parthkansal823/IntelliInventory/main/deploy/server/setup.sh | bash
 ```
-Email + password poochega (yahi aapka login). 10–15 minute mein ready, aur end mein link dikhega jaise
-`https://129-154-10-20.sslip.io` — **free HTTPS**, domain kharidna nahi padta.
+Email + password poochega (yahi aapka login) aur "demo link bhi chahiye?" — **Y** dabao. 10–15 minute mein ready, end mein dono links:
+- Dukaan: `https://129-154-10-20.sslip.io`
+- Demo: `https://demo.129-154-10-20.sslip.io`
+
+**Free HTTPS**, domain kharidna nahi padta.
 
 **3. Auto-deploy (CI/CD) chalu karo**
 GitHub repo → **Settings → Secrets and variables → Actions → New repository secret** — teen secrets:
@@ -402,7 +410,7 @@ GitHub repo → **Settings → Secrets and variables → Actions → New reposit
 | `SERVER_SSH_KEY` | download ki hui private key file ka **poora text** (Notepad mein kholke copy — BEGIN se END tak) |
 
 Test: Repo → **Actions → Deploy → Run workflow**. Green ✅ = server update ho gaya.
-Ab `main` pe har push → CI pass → server khud update. Data Postgres mein safe rehta hai.
+Ab `main` pe har push → CI pass → server pe **dukaan + demo dono** khud update. Dukaan ka data Postgres mein safe rehta hai.
 
 ### C. Bina card — apne PC / shop ke computer pe + free online link
 
