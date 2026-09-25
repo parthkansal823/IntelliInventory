@@ -1,0 +1,30 @@
+# Rebuild the Hugging Face Spaces (demo + your real shop) whenever main changes. Free.
+# One-time setup in GitHub -> Settings -> Secrets and variables -> Actions:
+#   secret   HF_TOKEN   = a Hugging Face token with "write" access (huggingface.co/settings/tokens)
+#   variable HF_SPACES  = comma-separated Space ids, e.g.  yourname/intelliinventory-demo,yourname/myshop
+name: Deploy to Hugging Face Spaces
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    if: ${{ vars.HF_SPACES != '' }}
+    steps:
+      - name: Factory-rebuild each Space (it pulls the latest code from GitHub)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACES: ${{ vars.HF_SPACES }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then echo "HF_TOKEN secret is not set - skipping"; exit 0; fi
+          IFS=',' read -ra spaces <<< "$HF_SPACES"
+          for space in "${spaces[@]}"; do
+            space="$(echo "$space" | xargs)"
+            echo "Rebuilding $space"
+            curl -fsS -X POST -H "Authorization: Bearer $HF_TOKEN" \
+              "https://huggingface.co/api/spaces/${space}/restart?factory=true"
+            echo
+          done

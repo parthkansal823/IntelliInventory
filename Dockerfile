@@ -23,5 +23,6 @@ RUN mkdir -p /data
 VOLUME /data
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+  CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\", \"8000\")}/api/health')"
+# $PORT is set by most free hosts (Render, Railway, Koyeb, Fly); 8000 otherwise.
+CMD ["sh", "-c", "alembic upgrade head || true; exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
