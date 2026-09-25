@@ -46,7 +46,7 @@ AI Copilot, GST, festival planning, aur **free mein online kaise daalna hai** (e
 | **Hindi / English** — upar EN / हिं | **Pehle login pe tutorial** — ❓ se dobara |
 
 - Bhasha ek click mein badlo — login page pe bhi. Aapki choice browser yaad rakhta hai.
-- **Video** (66 sec, Hindi + English captions): app mein ❓ → **वीडियो देखें**, ya `frontend/public/tutorial.webm`.
+- **Video** (~1.5 min, Hindi + English captions — bill by barcode/typing/🎤, wapsi, khata, hisaab, supplier khata, festivals, AI): app mein ❓ → **वीडियो देखें**, ya `frontend/public/tutorial.webm`.
 
 ![Dashboard Hindi](screenshots/dashboard-hi.png)
 

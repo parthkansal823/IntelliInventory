@@ -8,7 +8,7 @@ The AI runs on **Hermes** (Nous Research, free and local via Ollama) or a built-
 Every AI action passes through lifecycle **hooks**, and anything that changes stock waits for a human to approve it.
 
 > 📘 **New here? Read the step-by-step [Hinglish tutorial](docs/TUTORIAL.md)** or watch the
-> [66-second video](frontend/public/tutorial.webm). The whole app switches between **English and हिंदी** (EN / हिं in the
+> [short walkthrough video](frontend/public/tutorial.webm). The whole app switches between **English and हिंदी** (EN / हिं in the
 > top bar), and a short tutorial opens on the first login. Demo shop: **Kansal General Store, Kharar (Punjab)**.
 
 ![Dashboard](docs/screenshots/dashboard.png)
