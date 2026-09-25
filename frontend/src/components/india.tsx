@@ -190,8 +190,8 @@ export function NextFestivalCard() {
   if (!f) return null
   const s = plan.data!.summary
   return (
-    <Link to="/insights?tab=festival" className="group block">
-      <Card className="flex items-center gap-4 border-warning/40 bg-gradient-to-r from-warning/10 to-transparent p-4 transition group-hover:border-warning">
+    <Link to="/insights?tab=festival" className="group block h-full">
+      <Card className="flex h-full items-center gap-4 border-warning/40 bg-gradient-to-r from-warning/10 to-transparent p-4 transition group-hover:border-warning">
         <div className="text-3xl">{f.emoji}</div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">

@@ -1,9 +1,9 @@
 import QRCode from 'qrcode'
-import { Printer } from 'lucide-react'
+import { Printer, Sparkles } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
-import { keys, useAction, useCategories, useSuppliers, useWarehouses } from '@/hooks/queries'
+import { keys, useAction, useCategories, useGstSettings, useSuppliers, useWarehouses } from '@/hooks/queries'
 import { patch, post } from '@/lib/api'
-import type { ProductDetail, ProductRow } from '@/lib/types'
+import type { GstSuggestion, ProductDetail, ProductRow } from '@/lib/types'
 import { money } from '@/lib/utils'
 import { Badge, Button, Dialog, Field, Input, Segmented, Select, Textarea } from './ui'
 
@@ -109,8 +109,11 @@ export function ProductFormDialog({ product, open, onOpenChange }: { product?: P
   const categories = useCategories()
   const suppliers = useSuppliers()
   const warehouses = useWarehouses()
-  const empty = { sku: '', name: '', description: '', category_id: '', supplier_id: '', unit_cost: 0, unit_price: 0, min_order_qty: 1, reorder_point: '', safety_stock: '', initial_qty: 0, warehouse_id: '' }
+  const gst = useGstSettings().data
+  const empty = { sku: '', name: '', description: '', category_id: '', supplier_id: '', unit_cost: 0, unit_price: 0, min_order_qty: 1, reorder_point: '', safety_stock: '', initial_qty: 0, warehouse_id: '', hsn_code: '', gst_rate: '' }
   const [form, setForm] = useState<Record<string, string | number>>(empty)
+  const [gstTouched, setGstTouched] = useState(false)
+  const [hint, setHint] = useState<GstSuggestion | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -128,9 +131,13 @@ export function ProductFormDialog({ product, open, onOpenChange }: { product?: P
             min_order_qty: product.min_order_qty,
             reorder_point: product.manual_reorder_point ?? '',
             safety_stock: product.manual_safety_stock ?? '',
+            hsn_code: product.hsn_code ?? '',
+            gst_rate: product.gst_rate ?? '',
           }
         : empty,
     )
+    setGstTouched(false)
+    setHint(null)
   }, [open, product])
 
   const num = (v: string | number) => (v === '' ? null : Number(v))
@@ -144,7 +151,19 @@ export function ProductFormDialog({ product, open, onOpenChange }: { product?: P
     min_order_qty: Number(form.min_order_qty) || 1,
     reorder_point: num(form.reorder_point),
     safety_stock: num(form.safety_stock),
+    // GST is optional: only sent when a person set it (the AI fills blanks later and never overrides you)
+    ...(gstTouched ? { hsn_code: form.hsn_code || null, gst_rate: num(form.gst_rate) } : {}),
   })
+  const suggest = useAction(
+    () => post<GstSuggestion>('/api/india/gst/suggest', { name: form.name, category: categories.data?.find((c) => c.id === Number(form.category_id))?.name ?? null }),
+    {
+      onSuccess: (r) => {
+        setHint(r)
+        setGstTouched(true)
+        setForm((f) => ({ ...f, gst_rate: r.gst_rate, hsn_code: r.hsn_code ?? f.hsn_code }))
+      },
+    },
+  )
   const save = useAction(
     () =>
       product
@@ -153,6 +172,10 @@ export function ProductFormDialog({ product, open, onOpenChange }: { product?: P
     { success: product ? 'Product updated' : 'Product created', invalidate: refresh, onSuccess: () => onOpenChange(false) },
   )
   const set = (k: string) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const setGst = (k: string) => (e: { target: { value: string } }) => {
+    setGstTouched(true)
+    set(k)(e)
+  }
 
   return (
     <Dialog
@@ -184,7 +207,22 @@ export function ProductFormDialog({ product, open, onOpenChange }: { product?: P
           </Select>
         </Field>
         <Field label="Unit cost (₹)"><Input type="number" step="0.01" min={0} value={form.unit_cost} onChange={set('unit_cost')} /></Field>
-        <Field label="Unit price (₹)"><Input type="number" step="0.01" min={0} value={form.unit_price} onChange={set('unit_price')} /></Field>
+        <Field label="Selling price (₹, before GST)"><Input type="number" step="0.01" min={0} value={form.unit_price} onChange={set('unit_price')} /></Field>
+        {gst?.gst_enabled !== false && (
+          <div className="grid gap-3 rounded-lg border border-dashed border-border p-3 sm:col-span-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <Field label="GST rate (optional)" hint={product?.gst_source === 'ai' && !gstTouched ? 'Filled by AI — please check' : 'Leave blank: AI fills it from the name'}>
+              <Select value={form.gst_rate} onChange={setGst('gst_rate')}>
+                <option value="">Let AI fill later</option>
+                {(gst?.slabs ?? [0, 5, 18, 40]).map((r) => <option key={r} value={r}>{r}%</option>)}
+              </Select>
+            </Field>
+            <Field label="HSN code (optional)"><Input value={form.hsn_code} onChange={setGst('hsn_code')} placeholder="e.g. 1006" className="font-mono" /></Field>
+            <Button type="button" variant="secondary" disabled={!String(form.name).trim()} loading={suggest.isPending} onClick={() => suggest.mutate(undefined)}>
+              <Sparkles className="size-4" /> Suggest with AI
+            </Button>
+            {hint && <p className="text-xs text-muted sm:col-span-3">✨ {hint.reason} <Badge tone={hint.confidence === 'high' ? 'good' : hint.confidence === 'medium' ? 'info' : 'warning'}>{hint.confidence} confidence</Badge> — confirm with your CA.</p>}
+          </div>
+        )}
         <Field label="Min. order qty"><Input type="number" min={1} value={form.min_order_qty} onChange={set('min_order_qty')} /></Field>
         <Field label="Reorder point" hint="auto if empty"><Input type="number" min={0} value={form.reorder_point} onChange={set('reorder_point')} /></Field>
         <Field label="Safety stock" hint="auto if empty"><Input type="number" min={0} value={form.safety_stock} onChange={set('safety_stock')} /></Field>

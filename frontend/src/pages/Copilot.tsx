@@ -8,17 +8,19 @@ import { Badge, Card, EmptyState, Segmented, Select, Tabs, TabsContent, TabsList
 import { keys, useAction, useAgents, useApprovals, useConversations } from '@/hooks/queries'
 import { useAgentChat } from '@/hooks/useAgentChat'
 import { del } from '@/lib/api'
-import { canSpeak, createRecognition, speak, stopSpeaking } from '@/lib/speech'
+import { canSpeak, createRecognition, speak, stopSpeaking, voiceLang, type VoiceLang } from '@/lib/speech'
 import type { ChatItem } from '@/lib/types'
 import { cn, relativeTime } from '@/lib/utils'
 
 const SUGGESTIONS = [
+  { title: 'Aaj ki sale', prompt: 'aaj ki sale kitni hui?' },
+  { title: 'Udhaar', prompt: 'kiska udhaar baaki hai?' },
+  { title: 'Diwali stock', prompt: 'Diwali ke liye kya stock karna hai?' },
+  { title: 'What to reorder', prompt: 'kaunsa stock kam hai aur kya order karna hai?' },
+  { title: 'GST this month', prompt: 'is mahine GST kitna banega?' },
   { title: 'Morning briefing', prompt: 'Give me this morning’s inventory briefing' },
-  { title: 'What to reorder', prompt: 'What should I reorder today? Draft POs for the most urgent supplier.' },
   { title: 'What-if', prompt: 'What if demand for ACC-2001 rises 30% and lead time becomes 20 days?' },
   { title: 'Investigate', prompt: 'Any anomalies or suspicious write-offs this week?' },
-  { title: 'Health check', prompt: 'What is our inventory health score and the biggest lever to improve it?' },
-  { title: 'Hinglish', prompt: 'kaunsa stock kam hai aur kya order karna hai?' },
 ]
 
 function groupTurns(items: ChatItem[]) {
@@ -47,6 +49,12 @@ export default function Copilot() {
   const autoSent = useRef<string | null>(null)
   const textarea = useRef<HTMLTextAreaElement>(null)
   const recognition = useRef<ReturnType<typeof createRecognition>>(null)
+  const [lang, setLang] = useState<VoiceLang>(voiceLang.get)
+  const switchLang = () => {
+    const next = lang === 'hi-IN' ? 'en-IN' : 'hi-IN'
+    voiceLang.set(next)
+    setLang(next)
+  }
 
   const turns = useMemo(() => groupTurns(chat.items), [chat.items])
   const removeConv = useAction((id: string) => del(`/api/agents/conversations/${id}`), { invalidate: [keys.conversations] })
@@ -77,10 +85,10 @@ export default function Copilot() {
   useEffect(() => {
     if (wasStreaming.current && !chat.streaming && readAloud) {
       const last = [...chat.items].reverse().find((i) => i.type === 'agent_end' && i.depth === 0)
-      if (last?.type === 'agent_end') speak(last.text)
+      if (last?.type === 'agent_end') speak(last.text, undefined, lang)
     }
     wasStreaming.current = chat.streaming
-  }, [chat.streaming, chat.items, readAloud])
+  }, [chat.streaming, chat.items, readAloud, lang])
 
   const send = (text = input) => {
     if (!text.trim()) return
@@ -98,7 +106,7 @@ export default function Copilot() {
       recognition.current?.stop()
       return
     }
-    const rec = createRecognition()
+    const rec = createRecognition(lang)
     if (!rec) return
     recognition.current = rec
     rec.onresult = (e) => {
@@ -239,7 +247,14 @@ export default function Copilot() {
               className="max-h-40 min-h-9 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-subtle"
             />
             {createRecognitionSupported() && (
-              <Tooltip content={listening ? 'Stop listening' : 'Speak (English / Hinglish)'}>
+              <Tooltip content={lang === 'hi-IN' ? 'Voice: Hindi — click for English' : 'Voice: English — click for Hindi'}>
+                <button onClick={switchLang} className="rounded-xl px-2 py-1.5 text-xs font-semibold text-muted hover:bg-surface-2" aria-label="Voice language">
+                  {lang === 'hi-IN' ? 'हिं' : 'EN'}
+                </button>
+              </Tooltip>
+            )}
+            {createRecognitionSupported() && (
+              <Tooltip content={listening ? 'Stop listening' : lang === 'hi-IN' ? 'बोलिए (Hindi / Hinglish)' : 'Speak (English / Hinglish)'}>
                 <button onClick={toggleMic} className={cn('rounded-xl p-2', listening ? 'bg-critical/10 text-critical' : 'text-muted hover:bg-surface-2')} aria-label="Voice input">
                   {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
                 </button>

@@ -2,10 +2,12 @@ import {
   Activity,
   Bot,
   Boxes,
-  IndianRupee,
+  ChevronRight,
   Gauge,
+  IndianRupee,
   PackageX,
   Radar,
+  Receipt,
   RefreshCw,
   ShoppingCart,
   Sparkles,
@@ -20,7 +22,7 @@ import { BarList, SalesTrendChart, StockHealth } from '@/components/charts'
 import { Actor, Kpi, MarkdownView, SeverityIcon, StatusBadge } from '@/components/domain'
 import { NextFestivalCard } from '@/components/india'
 import { Badge, Button, Card, CardHeader, EmptyState, Skeleton } from '@/components/ui'
-import { keys, useAction, useAlerts, useDashboard, useHealth, useProducts, useReorder, useReports } from '@/hooks/queries'
+import { keys, useAction, useAlerts, useBillingSummary, useDashboard, useHealth, useProducts, useReorder, useReports } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { useLiveEvents } from '@/hooks/useLiveEvents'
 import { post } from '@/lib/api'
@@ -63,7 +65,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <NextFestivalCard />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <TodayBillingCard />
+        <NextFestivalCard />
+      </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Inventory value" value={moneyCompact(k?.inventory_value)} icon={<IndianRupee className="size-4" />} hint={`${number(k?.total_units)} units`} loading={dash.isLoading} />
@@ -349,4 +354,23 @@ function describeEvent(p: Record<string, unknown>): string {
   if (p.message) return String(p.message)
   if (p.name) return String(p.name)
   return Object.keys(p).slice(0, 4).join(', ')
+}
+
+function TodayBillingCard() {
+  const s = useBillingSummary(7).data
+  if (!s) return null
+  return (
+    <Link to="/billing" className="group block h-full">
+      <Card className="flex h-full items-center gap-4 p-4 transition group-hover:border-brand/50">
+        <div className="grid size-11 place-items-center rounded-xl bg-brand-soft text-brand"><Receipt className="size-5" /></div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold">Today: {money(s.today.sales)} from {s.today.bills} bill{s.today.bills === 1 ? '' : 's'}</div>
+          <div className="text-sm text-muted">
+            {s.outstanding ? <><span className="font-medium text-critical">{money(s.outstanding)}</span> udhaar to collect from {s.customers_with_dues} customer{s.customers_with_dues === 1 ? '' : 's'}</> : 'No udhaar pending'} · 7 days {moneyCompact(s.period.sales)}
+          </div>
+        </div>
+        <ChevronRight className="size-5 text-muted transition group-hover:translate-x-0.5" />
+      </Card>
+    </Link>
+  )
 }

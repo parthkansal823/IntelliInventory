@@ -5,9 +5,9 @@ import { ForecastChart } from '@/components/charts'
 import { Actor, StatusBadge, StockBar } from '@/components/domain'
 import { ImportDialog, LabelDialog, ProductFormDialog, StockDialog } from '@/components/InventoryDialogs'
 import { Badge, Button, Card, EmptyState, Input, PageHeader, Segmented, Select, Sheet, Skeleton, Table, Td, Th } from '@/components/ui'
-import { useCategories, useProduct, useProducts } from '@/hooks/queries'
+import { keys, useAction, useCategories, useGstSettings, useProduct, useProducts } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
-import { download } from '@/lib/api'
+import { download, post } from '@/lib/api'
 import type { ProductRow, StockStatus } from '@/lib/types'
 import { cn, dateTime, money, number, shortDate, titleCase } from '@/lib/utils'
 
@@ -54,14 +54,25 @@ export default function Inventory() {
 
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, dir: s.key === key ? ((-s.dir) as 1 | -1) : 1 }))
   const attention = (products.data ?? []).filter((p) => ['out', 'critical', 'low'].includes(p.status ?? '')).length
+  const gstOn = useGstSettings().data?.gst_enabled ?? true
+  const missingGst = (products.data ?? []).filter((p) => p.is_active && p.gst_rate == null).length
+  const fillGst = useAction(() => post<{ filled: number }>('/api/india/gst/autofill', {}), {
+    success: (r) => `AI filled HSN + GST for ${r.filled} product(s) — marked "AI" for you to review`,
+    invalidate: [keys.products, ['gst'], ['gst-settings']],
+  })
 
   return (
     <div>
       <PageHeader
-        title="Inventory"
-        description={`${rows.length} products · live stock, demand and replenishment policy`}
+        title="Stock"
+        description={`${rows.length} products · live stock, demand and when to reorder`}
         actions={
           <>
+            {can('manager') && gstOn && missingGst > 0 && (
+              <Button variant="secondary" onClick={() => fillGst.mutate(undefined)} loading={fillGst.isPending}>
+                <Sparkles className="size-4" /> Fill GST with AI ({missingGst})
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => download('/api/inventory/export.csv', 'inventory.csv')}>
               <Download className="size-4" /> Export
             </Button>
@@ -161,6 +172,7 @@ export default function Inventory() {
 
 function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void }) {
   const { data: p, isLoading } = useProduct(id)
+  const gstOn = useGstSettings().data?.gst_enabled ?? true
   const { can } = useAuth()
   const navigate = useNavigate()
   const [dialog, setDialog] = useState<null | 'adjust' | 'transfer' | 'label' | 'edit'>(null)
@@ -209,6 +221,14 @@ function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void
               ['Reorder point', number(p.reorder_point)],
               ['EOQ', number(p.eoq)],
               ['Lead time', `${p.lead_time_days}d`],
+              ...(gstOn
+                ? [
+                    ['GST', p.gst_rate == null ? 'AI will fill' : `${p.gst_rate}%${p.gst_source === 'ai' ? ' · AI (check)' : ''}`],
+                    ['HSN', p.hsn_code ?? '—'],
+                    ['Price incl. GST', money(p.price_incl_gst)],
+                    ['Margin', p.unit_price ? `${Math.round(((p.unit_price - p.unit_cost) / p.unit_price) * 100)}%` : '—'],
+                  ]
+                : []),
             ].map(([label, value]) => (
               <Card key={label} className="p-3">
                 <div className="text-xs text-muted">{label}</div>

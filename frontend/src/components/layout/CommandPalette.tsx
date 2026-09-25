@@ -9,7 +9,11 @@ import { NAV } from './nav'
 import { StatusBadge } from '../domain'
 
 const QUICK_ASKS = [
+  'aaj ki sale kitni hui?',
+  'kiska udhaar baaki hai?',
+  'Diwali ke liye kya stock karna hai?',
   'What should I reorder today?',
+  'is mahine GST kitna banega?',
   'Give me this morning’s briefing',
   'Any anomalies this week?',
   'What’s our inventory health score?',

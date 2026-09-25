@@ -25,7 +25,7 @@ class ProductIn(BaseModel):
     min_order_qty: int = Field(default=1, ge=1)
     lead_time_days: int | None = Field(default=None, ge=1)
     hsn_code: str | None = Field(default=None, max_length=8)
-    gst_rate: float | None = Field(default=None, ge=0, le=40)  # optional: AI fills it in later
+    gst_rate: float | None = Field(default=None, ge=0, le=100)  # optional: AI fills it in later
     initial_qty: int = Field(default=0, ge=0)
     warehouse_id: int | None = None
 
@@ -42,7 +42,7 @@ class ProductPatch(BaseModel):
     min_order_qty: int | None = Field(default=None, ge=1)
     lead_time_days: int | None = Field(default=None, ge=1)
     hsn_code: str | None = Field(default=None, max_length=8)
-    gst_rate: float | None = Field(default=None, ge=0, le=40)
+    gst_rate: float | None = Field(default=None, ge=0, le=100)
     is_active: bool | None = None
     clear_overrides: bool = False
 

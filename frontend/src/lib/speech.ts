@@ -12,10 +12,33 @@ export function plainText(markdown: string): string {
     .trim()
 }
 
-export function speak(markdown: string, onEnd?: () => void) {
+export type VoiceLang = 'en-IN' | 'hi-IN'
+
+/** Remembered per browser (a convenience only - falls back to Indian English). */
+export const voiceLang = {
+  get: (): VoiceLang => {
+    try {
+      return localStorage.getItem('ii-voice-lang') === 'hi-IN' ? 'hi-IN' : 'en-IN'
+    } catch {
+      return 'en-IN'
+    }
+  },
+  set: (lang: VoiceLang) => {
+    try {
+      localStorage.setItem('ii-voice-lang', lang)
+    } catch {
+      /* private mode */
+    }
+  },
+}
+
+export function speak(markdown: string, onEnd?: () => void, lang: VoiceLang = voiceLang.get()) {
   if (!canSpeak()) return
   window.speechSynthesis.cancel()
   const utterance = new SpeechSynthesisUtterance(plainText(markdown).slice(0, 4000))
+  utterance.lang = lang
+  const voice = window.speechSynthesis.getVoices().find((v) => v.lang === lang)
+  if (voice) utterance.voice = voice
   utterance.rate = 1.03
   utterance.onend = () => onEnd?.()
   window.speechSynthesis.speak(utterance)
