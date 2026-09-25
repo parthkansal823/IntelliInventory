@@ -18,10 +18,13 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from urllib.parse import quote, urlencode
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from app.models import (
+    Invoice,
+    InvoiceLine,
+    InvoiceStatus,
     MovementType,
     POStatus,
     Product,
@@ -262,11 +265,29 @@ def gst_report(session: Session, days: int = 30) -> dict:
             rate, {"rate": rate, "sales_taxable": 0.0, "output_tax": 0.0, "purchase_taxable": 0.0, "input_tax": 0.0}
         )
 
+    # Billed sales: exact taxable value and tax from the invoices (exports are zero-rated).
+    billed = session.exec(
+        select(Invoice.kind, InvoiceLine.gst_rate, func.sum(InvoiceLine.taxable), func.sum(InvoiceLine.tax))
+        .join(Invoice, Invoice.id == InvoiceLine.invoice_id)
+        .where(Invoice.created_at >= since, Invoice.status != InvoiceStatus.CANCELLED)
+        .group_by(Invoice.kind, InvoiceLine.gst_rate)
+    ).all()
+    for kind, rate, taxable, tax in billed:
+        s = slab(0.0 if kind == "export_invoice" else float(rate))
+        s["sales_taxable"] += float(taxable or 0)
+        s["output_tax"] += float(tax or 0)
+
+    # Other sales (scanner / POS imports without an invoice): estimated at the product's rate.
     sales = session.exec(
         select(Product.gst_rate, func.sum(-StockMovement.quantity * Product.unit_price))
         .select_from(StockMovement)
         .join(Product, Product.id == StockMovement.product_id)
-        .where(StockMovement.type == MovementType.SALE, StockMovement.created_at >= since, Product.gst_rate.is_not(None))
+        .where(
+            StockMovement.type == MovementType.SALE,
+            StockMovement.created_at >= since,
+            Product.gst_rate.is_not(None),
+            or_(StockMovement.reference.is_(None), StockMovement.reference.not_in(select(Invoice.number))),
+        )
         .group_by(Product.gst_rate)
     ).all()
     for rate, taxable in sales:
@@ -301,7 +322,7 @@ def gst_report(session: Session, days: int = 30) -> dict:
         "input_tax_credit": input_tax,
         "net_payable": round(max(0.0, output_tax - input_tax), 2),
         "carry_forward_credit": round(max(0.0, input_tax - output_tax), 2),
-        "note": "Estimate for planning only - sales assumed intra-state and prices GST-exclusive. File returns with your CA.",
+        "note": "Billed sales use the exact invoice values; other sales are estimated at each product's rate. File returns with your CA.",
     }
 
 

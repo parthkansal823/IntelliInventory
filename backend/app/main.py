@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlmodel import func, select
 
 from app.agents.providers import describe_providers, resolve_provider_name
-from app.api import agents, auth, automation, catalog, india, insights, operations
+from app.api import agents, auth, automation, billing, catalog, india, insights, operations
 from app.config import get_settings
 from app.db import init_db, session_scope
 from app.hooks import builtin as builtin_hooks
@@ -25,7 +25,8 @@ from app.hooks.bus import bus, toggles
 from app.mcp_server import mcp
 from app.models import Alert
 from app.plugins import load_plugins
-from app.seed import ensure_production_setup, seed_demo
+from app.seed import DEMO_ACCOUNTS, ensure_production_setup, seed_demo
+from app.services.billing import BillingError
 from app.services.inventory import InventoryError
 from app.services.scheduler import scheduler_loop
 
@@ -85,7 +86,11 @@ def create_app(*, start_scheduler: bool = True) -> FastAPI:
     async def inventory_error(_: Request, exc: InventoryError) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    for module in (auth, catalog, operations, insights, india, agents, automation):
+    @app.exception_handler(BillingError)
+    async def billing_error(_: Request, exc: BillingError) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=404 if "not found" in str(exc) else 400)
+
+    for module in (auth, catalog, operations, insights, india, billing, agents, automation):
         app.include_router(module.router)
     app.include_router(auth.users_router)
 
@@ -100,7 +105,7 @@ def create_app(*, start_scheduler: bool = True) -> FastAPI:
             "app_name": settings.app_name,
             "version": VERSION,
             "demo_mode": settings.demo_mode,
-            "demo_accounts": settings.demo_mode and settings.should_seed_demo,
+            "demo_accounts": DEMO_ACCOUNTS if settings.demo_mode and settings.should_seed_demo else [],
             "currency": "INR",
         }
 

@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from sqlmodel import select
 
 # Isolated database + deterministic settings before the app is imported.
 _tmp = Path(tempfile.mkdtemp(prefix="ii-tests-"))
@@ -31,12 +32,21 @@ def _token(client, email: str) -> str:
 
 @pytest.fixture(scope="session")
 def manager(client):
-    return {"Authorization": f"Bearer {_token(client, 'manager@intelliinventory.dev')}"}
+    return {"Authorization": f"Bearer {_token(client, 'ananya@intelliinventory.dev')}"}
 
 
 @pytest.fixture(scope="session")
 def viewer(client):
-    return {"Authorization": f"Bearer {_token(client, 'viewer@intelliinventory.dev')}"}
+    """Read-only account created just for tests (the demo itself only has Parth and Ananya)."""
+    from app.db import session_scope
+    from app.models import Role, User
+    from app.security import hash_password
+
+    with session_scope() as s:
+        if not s.exec(select(User).where(User.email == VIEWER["email"])).first():
+            s.add(User(email=VIEWER["email"], name=VIEWER["name"], role=Role.VIEWER, password_hash=hash_password("demo1234")))
+            s.commit()
+    return {"Authorization": f"Bearer {_token(client, VIEWER['email'])}"}
 
 
 @pytest.fixture
@@ -47,5 +57,5 @@ def session(client):
         yield s
 
 
-MANAGER = {"email": "manager@intelliinventory.dev", "name": "Meera Manager", "role": "manager"}
-VIEWER = {"email": "viewer@intelliinventory.dev", "name": "Vik Viewer", "role": "viewer"}
+MANAGER = {"email": "ananya@intelliinventory.dev", "name": "Ananya", "role": "manager"}
+VIEWER = {"email": "viewer@test.local", "name": "Ananya", "role": "viewer"}

@@ -7,7 +7,7 @@ from app.mcp_server import build_server
 
 def test_auth_and_rbac(client, manager, viewer):
     assert client.get("/api/products").status_code == 401
-    assert client.post("/api/auth/token", json={"email": "manager@intelliinventory.dev", "password": "nope"}).status_code == 401
+    assert client.post("/api/auth/token", json={"email": "ananya@intelliinventory.dev", "password": "nope"}).status_code == 401
     assert client.get("/api/auth/me", headers=manager).json()["role"] == "manager"
     body = {"sku": "TST-0001", "name": "Test"}
     assert client.post("/api/products", json=body, headers=viewer).status_code == 403

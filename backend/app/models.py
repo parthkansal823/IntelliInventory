@@ -157,6 +157,88 @@ class PurchaseOrderLine(SQLModel, table=True):
     order: PurchaseOrder = Relationship(back_populates="lines")
 
 
+# --- Billing (sales invoices, customer khata) ----------------------------------------------
+
+
+class InvoiceStatus(StrEnum):
+    PAID = "paid"
+    PARTIAL = "partial"
+    UNPAID = "unpaid"  # credit sale (udhaar) - shows up in the customer's khata
+    CANCELLED = "cancelled"
+
+
+class Customer(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    phone: str | None = Field(default=None, index=True)  # +91 ... or any international number
+    email: str | None = None
+    gstin: str | None = None  # B2B buyers - printed on the tax invoice
+    state: str | None = None  # Indian state or "Outside India" - decides the place of supply
+    address: str | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class Invoice(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    number: str = Field(index=True, unique=True)  # INV/26-27/00001 - per financial year, max 16 chars (GST rule 46)
+    kind: str = "tax_invoice"  # tax_invoice | bill_of_supply (GST off) | export_invoice
+    customer_id: int | None = Field(default=None, foreign_key="customer.id", index=True)
+    customer_name: str = "Walk-in customer"
+    customer_phone: str | None = None
+    customer_gstin: str | None = None
+    customer_address: str | None = None
+    place_of_supply: str | None = None
+    warehouse_id: int | None = Field(default=None, foreign_key="warehouse.id")
+    status: InvoiceStatus = Field(default=InvoiceStatus.PAID, index=True)
+    payment_mode: str = "cash"  # cash | upi | card | bank | credit
+    prices_include_gst: bool = False
+    subtotal: float = 0.0  # sum of qty x price as entered
+    discount: float = 0.0
+    taxable: float = 0.0
+    cgst: float = 0.0
+    sgst: float = 0.0
+    igst: float = 0.0
+    tax: float = 0.0
+    round_off: float = 0.0
+    total: float = 0.0
+    amount_paid: float = 0.0
+    notes: str | None = None
+    created_by: str = "user"
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    cancelled_at: datetime | None = None
+
+    lines: list["InvoiceLine"] = Relationship(back_populates="invoice", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+
+class InvoiceLine(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    invoice_id: int = Field(foreign_key="invoice.id", index=True)
+    product_id: int = Field(foreign_key="product.id")
+    warehouse_id: int = Field(foreign_key="warehouse.id")
+    sku: str
+    name: str
+    hsn_code: str | None = None
+    quantity: int
+    unit_price: float  # as entered (GST-inclusive when the invoice says so)
+    discount_pct: float = 0.0
+    gst_rate: float = 0.0
+    taxable: float = 0.0
+    tax: float = 0.0
+    total: float = 0.0
+
+    invoice: Invoice = Relationship(back_populates="lines")
+
+
+class Payment(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    invoice_id: int = Field(foreign_key="invoice.id", index=True)
+    amount: float
+    mode: str = "cash"
+    reference: str | None = None  # UPI UTR / cheque no.
+    created_by: str = "user"
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 # --- Automation / observability ---------------------------------------------
 
 

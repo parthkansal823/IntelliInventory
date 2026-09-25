@@ -54,6 +54,8 @@ def find_sku(text: str) -> str | None:
 # Common Hinglish phrasings mapped onto English intent keywords, so the free planner
 # understands e.g. "kya order karna hai?" or "kaunsa stock kam hai?".
 HINGLISH = [
+    (r"\b(aaj ki sale|aaj ki bikri|aaj ka collection|aaj ka galla|bikri kitni|sale kitni)\b", " billing "),
+    (r"\b(udhar|udhaar|baaki paise|paise baaki|kitna lena hai)\b", " udhaar "),
     (r"\b(kam|kami|thoda bacha)\b", " low "),
     (r"\b(khatam|khtm|nahi bacha|zero stock)\b", " out of stock "),
     (r"\b(mangana|mangwana|mangwao|order karna|order karo|kharidna)\b", " reorder "),
@@ -238,6 +240,19 @@ class OfflineProvider(Provider):
                 return [_call("list_suppliers")], ""
             if can("delegate"):
                 return delegate("procurement", "supplier performance")
+        invoice_no = re.search(r"\b[a-z0-9]{1,4}/\d{2}-\d{2}/\d{1,5}\b", text)
+        if invoice_no and can("get_invoice"):
+            return [_call("get_invoice", number=invoice_no.group(0).upper())], ""
+        if _has(text, "udhaar", "udhar", "khata", "dues", "baki", "baaki", "outstanding", "owes me", "credit sale"):
+            if can("customer_dues"):
+                return [_call("customer_dues", limit=10)], ""
+            if can("delegate"):
+                return delegate("analyst", "customer dues (khata)")
+        if _has(text, "billing", "invoice", "bills", "bikri", "aaj ki sale", "today's sale", "todays sale", "sales today"):
+            if can("billing_summary"):
+                return [_call("billing_summary", days=7)], ""
+            if can("delegate"):
+                return delegate("analyst", "billing summary")
         festival_names = (
             "diwali",
             "deepavali",
@@ -724,6 +739,47 @@ class OfflineProvider(Provider):
         return (
             f"🧾 **{d['product']}** → {hsn}GST **{d['gst_rate']:g}%** ({d['confidence']} confidence)\n\n{d['reason']}.\n\n"
             "_Rates change from time to time — confirm with your CA. Slabs can be updated in Settings → Business._"
+        )
+
+    def _r_billing_summary(self, d: dict) -> str:
+        modes = ", ".join(f"{m.upper()} {self._money(v)}" for m, v in d["collected_by_mode"].items()) or "—"
+        p = d["period"]
+        return (
+            f"### 🧾 Billing — last {d['days']} days\n"
+            f"- Today: **{self._money(d['today']['sales'])}** from {d['today']['bills']} bill(s)\n"
+            f"- Period: **{self._money(p['sales'])}** from {p['bills']} bills · average bill {self._money(p['avg_bill'])}"
+            f" · GST collected {self._money(p['tax'])}\n"
+            f"- Collected: {modes}\n"
+            f"- Udhaar still to collect: **{self._money(d['outstanding'])}** from {d['customers_with_dues']} customer(s)"
+        )
+
+    def _r_customer_dues(self, d: list) -> str:
+        if not d:
+            return "✅ Koi udhaar baaki nahi — no customer owes you money right now."
+        rows = [
+            {**r, "bills": len(r["invoices"]), "since": f"{r['days_outstanding']} days", "phone": r["phone"] or "—"} for r in d
+        ]
+        total = sum(r["balance"] for r in d)
+        return (
+            f"### 📒 Khata — {len(d)} customer(s) owe **{self._money(total)}**\n\n"
+            + self._table(
+                rows,
+                [("Customer", "name"), ("Phone", "phone"), ("Balance ₹", "balance"), ("Bills", "bills"), ("Oldest", "since")],
+            )
+            + "\n\n_Send a free WhatsApp reminder from Billing → Khata._"
+        )
+
+    def _r_get_invoice(self, d: dict) -> str:
+        tax = (
+            f"IGST {self._money(d['igst'])}"
+            if d["interstate"]
+            else f"CGST {self._money(d['cgst'])} + SGST {self._money(d['sgst'])}"
+        )
+        lines = "\n".join(f"- {line['name']} × {line['quantity']} = {self._money(line['total'])}" for line in d["lines"])
+        return (
+            f"### {d['title']} {d['number']} — {d['customer_name']}\n{lines}\n\n"
+            f"Taxable {self._money(d['taxable'])} · {tax} · **Total {self._money(d['total'])}**\n\n"
+            f"Status: **{d['status']}** · paid {self._money(d['amount_paid'])} · balance **{self._money(d['balance'])}**"
         )
 
     def _r_gst_summary(self, d: dict) -> str:

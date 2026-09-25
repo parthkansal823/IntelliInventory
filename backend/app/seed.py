@@ -112,11 +112,19 @@ WEEKLY = {
     "grocery": [0.95, 0.95, 0.95, 1.0, 1.05, 1.2, 1.15],
 }
 
+# The demo has exactly two people: Parth (owner / admin) and Ananya (manager).
 USERS = [
-    ("admin@intelliinventory.dev", "Aarav Admin", Role.ADMIN),
-    ("manager@intelliinventory.dev", "Meera Manager", Role.MANAGER),
-    ("staff@intelliinventory.dev", "Sameer Staff", Role.STAFF),
-    ("viewer@intelliinventory.dev", "Vikram Viewer", Role.VIEWER),
+    ("parth@intelliinventory.dev", "Parth", Role.ADMIN),
+    ("ananya@intelliinventory.dev", "Ananya", Role.MANAGER),
+]
+DEMO_ACCOUNTS = [
+    {"email": "parth@intelliinventory.dev", "name": "Parth", "role": "Admin", "note": "owner - everything: billing, GST, users"},
+    {
+        "email": "ananya@intelliinventory.dev",
+        "name": "Ananya",
+        "role": "Manager",
+        "note": "billing, approves POs & agent actions",
+    },
 ]
 
 
@@ -296,7 +304,7 @@ def seed_demo(session: Session) -> bool:
                     supplier_id=supplier.id,
                     warehouse_id=home.id,
                     status=POStatus.RECEIVED,
-                    created_by="user:manager@intelliinventory.dev",
+                    created_by="user:ananya@intelliinventory.dev",
                     created_at=created,
                     expected_at=created + timedelta(days=lead),
                     received_at=ts,
@@ -333,7 +341,7 @@ def seed_demo(session: Session) -> bool:
                         type=MovementType.ADJUSTMENT,
                         quantity=-shrink[d],
                         note=note,
-                        actor="user:staff@intelliinventory.dev",
+                        actor="user:parth@intelliinventory.dev",
                         created_at=at(d),
                     )
                 )
@@ -385,7 +393,7 @@ def seed_demo(session: Session) -> bool:
             supplier_id=supplier.id,
             warehouse_id=whs[0].id,
             status=status,
-            created_by="user:manager@intelliinventory.dev",
+            created_by="user:ananya@intelliinventory.dev",
             created_at=created,
             expected_at=created + timedelta(days=supplier.lead_time_days),
             notes="Replenishment for upcoming demand",
@@ -393,4 +401,56 @@ def seed_demo(session: Session) -> bool:
         po.lines.append(PurchaseOrderLine(product_id=product.id, quantity=qty, unit_cost=product.unit_cost))
         session.add(po)
     session.commit()
+    seed_billing(session, rng)
     return True
+
+
+# days ago, customer (None = walk-in), items (sku, qty), payment mode, amount paid (None = full / credit = 0)
+DEMO_BILLS = [
+    (6, None, [("GRC-7001", 2), ("HOM-4001", 1)], "cash", None),
+    (6, "parth", [("ACC-2002", 2), ("ACC-2003", 1)], "upi", None),
+    (5, "parth", [("GRC-7001", 4), ("GRC-7005", 2)], "credit", None),
+    (5, None, [("SPT-6003", 2)], "cash", None),
+    (4, None, [("ELC-1005", 1)], "card", None),
+    (3, "ananya", [("SPT-6002", 2), ("SPT-6004", 4)], "bank", None),  # export - Outside India
+    (3, "parth", [("HLT-5002", 3), ("OFF-3005", 3)], "upi", 300.0),  # part-paid, rest on khata
+    (2, None, [("ACC-2005", 1)], "upi", None),
+    (2, None, [("OFF-3002", 2), ("OFF-3005", 3)], "cash", None),
+    (1, None, [("HOM-4003", 1), ("HOM-4005", 1)], "upi", None),
+    (1, "parth", [("TOY-8004", 1)], "credit", None),
+    (0, None, [("ACC-2002", 1), ("ACC-2004", 1)], "upi", None),
+    (0, None, [("GRC-7005", 1)], "cash", None),
+]
+
+
+def seed_billing(session: Session, rng: random.Random) -> None:
+    """A week of bills: counter sales, UPI/card, udhaar on the khata and one export invoice."""
+    from app.models import Customer
+    from app.services import billing
+    from app.services.settings import set_setting
+
+    set_setting(billing.PROFILE_KEY, billing.demo_profile())
+    customers = {
+        "parth": Customer(name="Parth", phone="+91 98201 45678", state="Maharashtra", address="Andheri East, Mumbai"),
+        "ananya": Customer(name="Ananya", phone="+971 50 123 4567", state="Outside India", address="Deira, Dubai, UAE"),
+    }
+    session.add_all(customers.values())
+    session.commit()
+    now = utcnow()
+    per_day: dict[int, int] = {}
+    for days_ago, who, items, mode, paid in DEMO_BILLS:
+        day = now.astimezone(IST).date() - timedelta(days=days_ago)
+        slot = per_day[days_ago] = per_day.get(days_ago, -1) + 1  # keeps invoice numbers in time order
+        shop_time = time(10 + 5 * slot + rng.randint(0, 4), rng.randint(0, 59))
+        when = min(datetime.combine(day, shop_time, tzinfo=IST).astimezone(UTC), now)
+        billing.create_invoice(
+            session,
+            [{"sku": sku, "quantity": qty} for sku, qty in items],
+            customer_id=customers[who].id if who else None,
+            payment_mode=mode,
+            amount_paid=paid,
+            prices_include_gst=who is None,  # counter sales at MRP (GST-inclusive); B2B/export bills exclusive
+            actor="user:ananya@intelliinventory.dev",
+            created_at=when,
+            emit=False,
+        )

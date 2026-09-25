@@ -46,7 +46,7 @@ describe('formatters', () => {
     expect(money(9.5)).toBe('₹9.50')
     expect(pct(12.345)).toBe('12.3%')
     expect(actorLabel('agent:procurement~manager@x')).toEqual({ label: 'procurement', isAgent: true })
-    expect(actorLabel('user:meera@x.dev')).toEqual({ label: 'meera', isAgent: false })
+    expect(actorLabel('user:ananya@x.dev')).toEqual({ label: 'ananya', isAgent: false })
   })
 
   it('strips markdown for text-to-speech', () => {

@@ -84,7 +84,7 @@ make install     # uv sync + npm install
 make dev         # API on :8000 + web on :5173
 ```
 
-Open http://localhost:5173 and sign in as **manager@intelliinventory.dev** with password **demo1234**. Admin, staff and viewer demo accounts are also available. Demo data (37 products, 120 days of history) is seeded on first start.
+Open http://localhost:5173 and sign in as **parth@intelliinventory.dev** (owner/admin) or **ananya@intelliinventory.dev** (manager) with password **demo1234**. Demo data (37 products, 120 days of history) is seeded on first start.
 
 **Single container:**
 

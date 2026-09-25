@@ -5,13 +5,6 @@ import { Button, Card, Field, Input } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 import { usePublicConfig } from '@/hooks/usePublicConfig'
 
-const DEMO = [
-  { email: 'manager@intelliinventory.dev', role: 'Manager', note: 'approves POs & agent actions' },
-  { email: 'admin@intelliinventory.dev', role: 'Admin', note: 'users, webhooks, everything' },
-  { email: 'staff@intelliinventory.dev', role: 'Staff', note: 'scans, counts, drafts' },
-  { email: 'viewer@intelliinventory.dev', role: 'Viewer', note: 'read-only' },
-]
-
 const FEATURES = [
   { icon: Bot, title: 'Multi-agent copilot', text: 'Free Hermes AI (runs on your own machine) or an offline planner — with human approvals.' },
   { icon: ChartLine, title: 'Forecast & simulate', text: 'Holt-Winters forecasts, Monte-Carlo what-ifs, smart reorder points.' },
@@ -23,15 +16,16 @@ export function LoginPage() {
   const { user, login } = useAuth()
   const navigate = useNavigate()
   const config = usePublicConfig()
-  const demo = config.data?.demo_accounts ?? false
+  const demoAccounts = config.data?.demo_accounts ?? []
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const firstDemo = demoAccounts[0]?.email
   useEffect(() => {
-    if (demo) {
-      setEmail(DEMO[0].email)
+    if (firstDemo) {
+      setEmail(firstDemo)
       setPassword('demo1234')
     }
-  }, [demo])
+  }, [firstDemo])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -87,7 +81,7 @@ export function LoginPage() {
           </div>
           <h2 className="text-lg font-semibold">Sign in</h2>
           <p className="mt-1 text-sm text-muted">
-            {demo ? 'Live demo — pick an account below, the password is prefilled. Data resets periodically.' : 'Sign in with the account your administrator created.'}
+            {demoAccounts.length ? 'Live demo — pick an account below, the password is prefilled. Data resets periodically.' : 'Sign in with the account your administrator created.'}
           </p>
           <form onSubmit={submit} className="mt-6 space-y-4">
             <Field label="Email">
@@ -101,9 +95,9 @@ export function LoginPage() {
               Sign in
             </Button>
           </form>
-          {demo && (
+          {demoAccounts.length > 0 && (
           <Card className="mt-6 divide-y divide-border">
-            {DEMO.map((d) => (
+            {demoAccounts.map((d) => (
               <button
                 key={d.email}
                 type="button"
@@ -114,7 +108,8 @@ export function LoginPage() {
                 className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition first:rounded-t-xl last:rounded-b-xl hover:bg-surface-2"
               >
                 <span>
-                  <span className="font-medium">{d.role}</span>
+                  <span className="font-medium">{d.name}</span>
+                  <span className="ml-1.5 text-xs text-subtle">{d.role}</span>
                   <span className="ml-2 text-xs text-muted">{d.note}</span>
                 </span>
                 {email === d.email && <span className="size-2 rounded-full bg-brand" />}

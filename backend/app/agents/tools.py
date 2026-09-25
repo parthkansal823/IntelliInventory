@@ -361,7 +361,7 @@ def plan_festival_stock(
 @tools.tool(tags=("read", "india", "tax"))
 def gst_summary(days: Annotated[int, Field(ge=7, le=120, description="Period in days")] = 30) -> dict:
     """GST estimate (GSTR-3B style): output tax on sales vs input tax credit on received purchases, per slab
-    (5/12/18/28%), and the net GST payable."""
+    (GST 2.0: 0/5/18/40%), and the net GST payable."""
     with session_scope() as s:
         return india.gst_report(s, days)
 
@@ -525,3 +525,36 @@ def start_cycle_count(
         summary = counts.count_summary(s, count)
     summary["lines"] = summary["lines"][:10]
     return summary
+
+
+@tools.tool(tags=("read", "india", "billing"))
+def billing_summary(days: Annotated[int, Field(ge=1, le=120, description="Period in days")] = 7) -> dict:
+    """Sales from bills/invoices: today's sales, the period total, average bill, money collected per payment mode
+    (cash/UPI/card/bank) and the total udhaar (credit) still to collect."""
+    from app.services import billing
+
+    with session_scope() as s:
+        data = billing.billing_summary(s, days)
+        data["daily"] = data["daily"][-7:]
+        return data
+
+
+@tools.tool(tags=("read", "india", "billing"))
+def customer_dues(limit: Annotated[int, Field(ge=1, le=50, description="Max customers")] = 10) -> list[dict]:
+    """The khata: customers with unpaid / part-paid bills (udhaar), biggest balance first, with phone numbers and
+    how many days the oldest bill has been outstanding."""
+    from app.services import billing
+
+    with session_scope() as s:
+        return billing.customer_dues(s, limit)
+
+
+@tools.tool(tags=("read", "india", "billing"))
+def get_invoice(number: Annotated[str, Field(description="Invoice number, e.g. INV/26-27/00007")]) -> dict:
+    """One invoice with its lines, GST breakup (CGST/SGST or IGST), payments and balance due."""
+    from app.services import billing
+
+    with session_scope() as s:
+        d = billing.invoice_detail(s, billing.find_invoice(s, number))
+        d.pop("seller", None)
+        return d
