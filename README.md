@@ -121,27 +121,13 @@ docker compose --profile postgres up --build  # + PostgreSQL 17 (set DATABASE_UR
 
 Production build without Docker: `make build`, then `make api`. FastAPI serves the SPA from `frontend/dist`.
 
-## Free deployment (demo link + your real shop) — CI/CD
+## Free demo link (Koyeb)
 
-```
-push to main → CI (tests, lint, build, Docker smoke test) → ✅ → Deploy workflow → your server over SSH (that exact commit)
-```
-
-**Recommended: one free Oracle Cloud Always Free server (2 ARM CPU / 12 GB) for both links, both with Hermes.**
-
-| | URL | AI | Data |
-|---|---|---|---|
-| **Your shop** | `https://<ip>.sslip.io` | Hermes via Ollama | PostgreSQL |
-| **Public demo** | `https://demo.<ip>.sslip.io` (compose profile `demo`) | Hermes (shared) | fresh sample shop on every deploy |
-
-- On a fresh Ubuntu server: `curl -fsSL https://raw.githubusercontent.com/parthkansal823/IntelliInventory/main/deploy/server/setup.sh | bash`
-  (Docker; app + demo + Ollama/Hermes + Postgres + Caddy auto-HTTPS on sslip.io).
-- Add GitHub secrets `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY` → every green CI run on `main` deploys.
-- No server? Demo only on **Koyeb** free (Dockerfile, port 8000) or **Render** (`render.yaml`, if your workspace has free
-  hours left); shop on your own PC shared with `cloudflared tunnel --url http://localhost:8000`.
-
-Step by step: [tutorial §15](docs/TUTORIAL.md#15-free-deploy--2-links). Forgot the admin password?
-`uv run python -m app.cli reset-password <email> <new>`.
+The public demo runs on **[Koyeb](https://www.koyeb.com)**'s free instance straight from this repo's `Dockerfile`:
+Create Service → GitHub → `main` → Builder *Dockerfile* → Instance *Free* → port `8000`, health check `/api/health` →
+env `DEMO_MODE=true`, `AI_PROVIDER=offline`, `OLLAMA_AUTODETECT=false`. Koyeb redeploys on every push to `main`;
+GitHub Actions CI runs tests, lint, build and a Docker smoke test on the same push.
+Step by step (Hinglish): [tutorial §15](docs/TUTORIAL.md#15-demo-link-online-free).
 
 ## AI providers: free first
 
@@ -245,7 +231,7 @@ Configuration lives in [`.env.example`](.env.example). Every value is optional.
 **Ops:**
 - Docker (multi-stage) and docker-compose, with optional Ollama and Postgres
 - GitHub Actions CI
-- CI/CD: GitHub Actions → Render (demo) and SSH deploy of a Docker Compose stack (app + Ollama + Postgres + Caddy)
+- GitHub Actions CI (tests, lint, build, Docker smoke test); demo deployed on Koyeb from the Dockerfile
 
 ## License
 MIT

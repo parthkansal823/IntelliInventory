@@ -38,13 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t intelliinventory .
-      - name: Check the server stack (compose + scripts)
-        run: |
-          cp deploy/server/.env.example deploy/server/.env
-          docker compose -f deploy/server/docker-compose.yml config -q
-          COMPOSE_PROFILES=https,demo,tunnel docker compose -f deploy/server/docker-compose.yml config -q
-          bash -n deploy/server/setup.sh && bash -n deploy/server/update.sh
-      - name: Smoke test the image (demo mode, like Render)
+      - name: Smoke test the image (demo mode, like the Koyeb demo)
         run: |
           docker run -d --name smoke -p 8000:10000 -e PORT=10000 -e DEMO_MODE=true -e AI_PROVIDER=offline intelliinventory
           for i in $(seq 1 60); do curl -fsS localhost:8000/api/health && break; sleep 2; done

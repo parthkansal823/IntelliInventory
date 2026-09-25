@@ -23,7 +23,7 @@ AI Copilot, GST, festival planning, aur **free mein online kaise daalna hai** (e
 12. [Hermes AI free mein kaise chalaye](#12-hermes-ai-free-mein)
 13. [Users & roles](#13-users--roles)
 14. [Automation, hooks, webhooks (advanced)](#14-automation-hooks-webhooks)
-15. [Free mein online daalo — 2 links (demo + asli)](#15-free-deploy--2-links)
+15. [Demo link online (free)](#15-demo-link-online-free)
 16. [Payment gateway ka sawaal](#16-payment-gateway-ka-sawaal)
 17. [Problem aaye toh (Troubleshooting)](#17-troubleshooting)
 
@@ -339,95 +339,47 @@ Asli AI (Hermes, Nous Research) chahiye toh — **free, aapke computer pe:**
 
 ---
 
-## 15. Free deploy — 2 links
+## 15. Demo link online (free)
 
-> **Note:** Hugging Face ab Docker apps ke liye PRO (paid) maangta hai, isliye hum use **nahi** karte.
+Demo = sample dukaan (Parth / Ananya logins) jo aap kisi ko bhi link bhej ke dikha sakte ho.
+Hum **Koyeb** use karte hain — free (1 app), GitHub se seedha deploy, aur `main` pe push karte hi khud update.
 
-**Sabse achha (recommended): ek hi free Oracle server pe dono links — Hermes AI dono mein.**
+> Free server mein RAM kam (512 MB) hai, isliye demo mein AI Copilot **offline planner** se chalta hai (Hinglish samajhta hai).
+> Hermes AI ke liye app apne computer pe chalao (section 12).
 
-| Link | Kahan (free) | AI | Data |
-|---|---|---|---|
-| **Asli dukaan** — `https://<ip>.sslip.io` | Oracle Cloud Always Free server (2 CPU, 12 GB RAM) | **Hermes** ✅ | PostgreSQL, permanent |
-| **Demo** — `https://demo.<ip>.sslip.io` | **usi server pe** (setup poochta hai "demo link bhi chahiye?") | **Hermes** ✅ | sample data, har deploy pe fresh |
+### Steps (10 minute)
 
-Server nahi banana? Demo ke liye **A (Koyeb / Render)** aur dukaan ke liye **C (apna PC)** dekho.
+1. https://www.koyeb.com → **Sign up** → **Continue with GitHub**.
+2. Dashboard → **Create Service** (ya **Create Web Service**) → **GitHub** → GitHub access do → repo **`IntelliInventory`** chuno, branch **`main`**.
+3. **Builder**: **Dockerfile** chuno (Dockerfile path: `Dockerfile` — root mein hai).
+4. **Instance**: **Free** · Region: **Frankfurt** (India ke sabse paas wala free region).
+5. **Environment variables** mein yeh 3 add karo:
 
-### CI/CD — sab automatic
+   | Name | Value |
+   |---|---|
+   | `DEMO_MODE` | `true` |
+   | `AI_PROVIDER` | `offline` |
+   | `OLLAMA_AUTODETECT` | `false` |
+
+6. **Exposed ports**: `8000` (HTTP), path `/`. **Health check**: HTTP, path `/api/health`.
+7. **Service name**: `intelliinventory-demo` → **Deploy**.
+8. 5–10 minute mein build → link milega jaise `https://intelliinventory-demo-aapka-naam.koyeb.app`.
+   Kholo → **Parth** ya **Ananya** → password `demo1234`. 🎉
+
+### Update kaise hota hai (CI/CD)
 
 ```
-Aap main pe push karo → CI (tests, lint, build, Docker smoke test) → ✅ pass?
-                                                                     └─→ Deploy workflow → server (SSH) → dukaan + demo dono update
-                         ❌ fail? → kuch deploy nahi hota, purana version chalta rehta hai
+Aap main pe push karo → GitHub CI (tests, lint, build, Docker smoke test)
+                      → Koyeb khud naya version build + deploy karta hai
 ```
 
-### A. Sirf demo, bina server (optional)
-
-- **Koyeb** (free: 1 app, 512 MB, card nahi maangta — sign-up ke waqt check kar lena): https://www.koyeb.com → GitHub se
-  sign up → **Create Web Service → GitHub** → repo `IntelliInventory` → Builder: **Dockerfile** → Port `8000` →
-  Environment variables: `DEMO_MODE=true`, `AI_PROVIDER=offline` → Instance **Free** → Deploy. `main` pe push karte hi
-  khud update hota hai. 1 ghante koi na khole toh so jaata hai.
-- **Render**: sirf tab jab aapke Render workspace mein free hours bache hon (750 ghante/mahina *poore* workspace ke liye —
-  koi dusra always-on project ho toh hours khatam ho jaate hain). Render → New → Blueprint → repo → Apply
-  (`render.yaml` ready hai, CI pass hone ke baad hi deploy karta hai).
-
-Dono mein RAM kam hai, isliye demo mein Hermes ki jagah offline planner chalega.
-
-### B. Asli dukaan — Oracle Cloud Always Free (Hermes ke saath)
-
-Oracle hamesha-free server deta hai (2 ARM CPU, 12 GB RAM). Sign-up pe **card verification** hota hai (paisa nahi katta).
-Card nahi dena? Neeche **C** dekho.
-
-**1. Server banao**
-- https://www.oracle.com/cloud/free/ → **Start for free** → account banao (Home region: **India West (Mumbai)** ya **India South (Hyderabad)**).
-- Console → **Compute → Instances → Create instance**
-  - Image: **Ubuntu 24.04** · Shape: **Ampere (VM.Standard.A1.Flex)** → **2 OCPU, 12 GB**
-  - **Add SSH keys → Generate a key pair for me** → **private key download** karo (sambhal ke rakho!)
-  - **Create**. Public IP note karo.
-- Ports kholo: Instance → **Subnet → Default Security List → Add Ingress Rules** → Source `0.0.0.0/0`, TCP, port `80`; phir ek aur port `443`.
-
-**2. Ek command se install**
-Apne computer se SSH karo (Windows PowerShell mein bhi chalta hai):
-```bash
-ssh -i path/to/downloaded-key.key ubuntu@AAPKA_IP
-```
-Server pe yeh paste karo:
-```bash
-curl -fsSL https://raw.githubusercontent.com/parthkansal823/IntelliInventory/main/deploy/server/setup.sh | bash
-```
-Email + password poochega (yahi aapka login) aur "demo link bhi chahiye?" — **Y** dabao. 10–15 minute mein ready, end mein dono links:
-- Dukaan: `https://129-154-10-20.sslip.io`
-- Demo: `https://demo.129-154-10-20.sslip.io`
-
-**Free HTTPS**, domain kharidna nahi padta.
-
-**3. Auto-deploy (CI/CD) chalu karo**
-GitHub repo → **Settings → Secrets and variables → Actions → New repository secret** — teen secrets:
-
-| Name | Value |
-|---|---|
-| `SERVER_HOST` | server ka public IP |
-| `SERVER_USER` | `ubuntu` |
-| `SERVER_SSH_KEY` | download ki hui private key file ka **poora text** (Notepad mein kholke copy — BEGIN se END tak) |
-
-Test: Repo → **Actions → Deploy → Run workflow**. Green ✅ = server update ho gaya.
-Ab `main` pe har push → CI pass → server pe **dukaan + demo dono** khud update. Dukaan ka data Postgres mein safe rehta hai.
-
-### C. Bina card — apne PC / shop ke computer pe + free online link
-
-1. App chalao (`scripts\start-windows.bat`) aur Hermes ke liye Ollama (section 12).
-2. **Cloudflare Tunnel** (free, account bhi nahi chahiye): https://github.com/cloudflare/cloudflared/releases se `cloudflared` download karo, phir:
-   ```bash
-   cloudflared tunnel --url http://localhost:8000
-   ```
-   Ek link milega jaise `https://abc-xyz.trycloudflare.com` — phone se bhi khulega. (PC band = link band; restart pe link badalta hai.)
-
-   Docker hai toh: `deploy/server` mein `.env` banao (`.env.example` copy), `COMPOSE_PROFILES=tunnel` rakho, `docker compose up -d`,
-   link: `docker compose logs tunnel | findstr trycloudflare`.
+GitHub pe CI laal ❌ ho toh pehle use theek karo — Actions tab mein error dikhta hai.
 
 ### Dhyan rakhein
-- Deploy fail? Repo → **Actions** → laal ❌ run → error padho. Common: `SERVER_SSH_KEY` adhoori copy hui, ya ports 80/443 nahi khule.
-- Server pe logs: `cd ~/IntelliInventory/deploy/server && sudo docker compose logs -f app`
-- Backup (Oracle): `sudo docker compose exec postgres pg_dump -U intelli intelliinventory > backup.sql`
+- 1 ghante koi na khole toh demo **so jaata hai**; agli baar kholne pe ~1 minute lagta hai.
+- Demo ka data restart/deploy pe **reset** hota hai — sirf dikhane ke liye hai, asli billing ke liye nahi.
+- Koyeb sign-up pe card maange toh "Hobby / Free" plan hi chunna — free instance pe charge nahi hota.
+- Error? Koyeb → service → **Logs** / **Build logs** dekho.
 
 ---
 
