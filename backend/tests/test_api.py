@@ -120,3 +120,14 @@ def test_autopilot_drafts_po_when_stock_runs_low(client, manager):
         assert any(e["payload"].get("sku") == target["sku"] for e in events)
     finally:
         client.patch("/api/automation/settings", json={"autopilot_enabled": False}, headers=manager)
+
+
+def test_cli_resets_passwords_and_creates_admins(client):
+    from app.cli import main
+
+    assert main(["create-admin", "owner@shop.test", "secret-123", "--name", "Parth"]) == 0
+    assert client.post("/api/auth/token", json={"email": "owner@shop.test", "password": "secret-123"}).status_code == 200
+    assert main(["reset-password", "owner@shop.test", "another-456"]) == 0
+    assert client.post("/api/auth/token", json={"email": "owner@shop.test", "password": "another-456"}).status_code == 200
+    assert main(["reset-password", "nobody@shop.test", "whatever-1"]) == 1
+    assert main(["reset-password", "owner@shop.test", "short"]) == 2

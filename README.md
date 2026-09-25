@@ -1,24 +1,45 @@
 # IntelliInventory
 
-**AI-native inventory management that plans itself, and asks before it acts.**
+**AI inventory, GST billing and udhaar khata for Indian shops — free to run, with a Hermes AI copilot that asks before it acts.**
 
-It forecasts demand, computes reorder points, drafts purchase orders and investigates anomalies with a team of AI agents. You can run them on **Hermes** (Nous Research, free and local via Ollama) or a built-in **offline planner** that needs no model at all — no paid API anywhere. Every agent action passes through lifecycle **hooks**, and anything that changes stock waits for a human to approve it.
+Make GST bills in 3 steps, collect by UPI QR (no gateway fee), track udhaar, plan Diwali stock, and ask
+*"aaj ki sale kitni hui?"* in Hinglish. Demand forecasts, reorder points and purchase orders are computed from your own sales.
+The AI runs on **Hermes** (Nous Research, free and local via Ollama) or a built-in **offline planner** — no paid API anywhere.
+Every AI action passes through lifecycle **hooks**, and anything that changes stock waits for a human to approve it.
 
-> **100% free to run.** SQLite plus an open-source stack. The default AI mode needs no API key, and real LLM reasoning is also free with a local Hermes model.
+> 📘 **New here? Read the step-by-step [Hinglish tutorial](docs/TUTORIAL.md)** — run it on Windows, make bills, GST,
+> khata, AI copilot, and put it online for free (a demo link + your real shop).
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-| AI Copilot (multi-agent, approvals) | Forecast & what-if simulator |
+| Billing (UPI QR, split, udhaar) | GST tax invoice (print / WhatsApp) |
 |---|---|
-| ![Copilot](docs/screenshots/copilot.png) | ![Insights](docs/screenshots/insights.png) |
-| **Product drawer (forecast band, policy)** | **Automation (hooks, autopilot, webhooks)** |
-| ![Inventory](docs/screenshots/inventory.png) | ![Automation](docs/screenshots/automation.png) |
-| **Dark mode** | **Mobile scan mode (PWA)** |
-| ![Dark](docs/screenshots/dashboard-dark.png) | <img src="docs/screenshots/mobile-scan.png" width="260"> |
+| ![Billing](docs/screenshots/billing.png) | ![Invoice](docs/screenshots/invoice.png) |
+| **Festival planner (Diwali stock-up)** | **AI Copilot in Hinglish** |
+| ![Festivals](docs/screenshots/festivals.png) | ![Copilot](docs/screenshots/copilot.png) |
+| **Purchase order with GST, e-way bill, UPI** | **Stock drawer (forecast, GST, policy)** |
+| ![PO](docs/screenshots/purchase-order.png) | ![Inventory](docs/screenshots/inventory.png) |
+| **Dark mode** | **Mobile billing (PWA)** |
+| ![Dark](docs/screenshots/dashboard-dark.png) | <img src="docs/screenshots/mobile-billing.png" width="260"> |
 
 ---
 
 ## Features
+
+### Made for India
+- **Billing**: tax invoice / bill of supply / zero-rated export invoice, CGST+SGST or IGST from the place of supply,
+  MRP-style GST-inclusive prices, line discounts, round-off, amount in words (lakh/crore), numbering per financial year
+  (`INV/26-27/00001`, ≤ 16 characters), A4 and 80 mm thermal print, WhatsApp share, cancel with stock return.
+- **Payments without a gateway**: UPI QR with the exact amount (money goes straight to your bank), UTR capture,
+  cash with change, card, split cash + UPI, and **udhaar** (credit) on the customer's **khata** with WhatsApp reminders.
+- **GST, optional**: switch it off if you are not registered; editable slabs (GST 2.0 default 0/5/18/40%); the AI fills
+  HSN + rate from the product name later and never overwrites a rate a person entered; GSTIN checksum validation;
+  GSTR-3B style report; GSTR-1 friendly sales register CSV for your CA; e-way bill warnings above ₹50,000.
+- **Festival planner**: Navratri, Dussehra, Dhanteras, Diwali, Chhath, Holi, Eid, Rakhi, Ganesh Chaturthi, Onam…
+  category demand lift, festival-aware forecasts, "order by" dates from supplier lead times, one-click festival POs.
+- **Indian everywhere**: ₹ with lakh/crore grouping, IST dates, Indian states (or "Outside India"), phone numbers
+  auto-formatted to +91 while international numbers still work, Hindi voice, Hinglish copilot.
+- **Two deployments**: `DEMO_MODE=true` (sample shop, demo logins) and `DEMO_MODE=false` (your real shop, one admin).
 
 ### Inventory core
 - Products, categories, suppliers and **multiple warehouses**, with stock tracked per warehouse.
@@ -44,7 +65,7 @@ It forecasts demand, computes reorder points, drafts purchase orders and investi
 
 ### Multi-agent AI
 - **Copilot** is the orchestrator. It delegates to four specialists: **Analyst**, **Forecaster**, **Procurement** and **Auditor**. Specialists stream their work inline as nested cards.
-- The agents share **22 typed tools** (plus any a plugin adds): one registry that also backs the MCP server.
+- The agents share **28 typed tools** (plus any a plugin adds): one registry that also backs the MCP server.
 - **Human in the loop:** stock adjustments, transfers, PO status changes and reorder-setting changes become approval requests. They run only when a manager clicks *Approve & run*.
 - The **procurement autopilot** is an event-driven agent. When stock drops below the reorder point, it drafts a PO for approval, with a per-SKU cooldown and deduplication against open POs.
 - A **daily AI briefing** is written by the Copilot on a schedule, and can be read aloud.
@@ -61,7 +82,6 @@ It forecasts demand, computes reorder points, drafts purchase orders and investi
 | **Webhooks** | HMAC-SHA256 signed, 3 retries, delivery log; Slack and Discord URLs are auto-formatted |
 | **Plugins** | Drop a `register(ctx)` module into `backend/app/plugins/` to add agent hooks, event hooks and tools. See the `budget_guard` example. |
 | **Hermes Agent** | Plugin (`pre_tool_call` guardrail, `post_tool_call` audit), gateway hook and skill in `integrations/hermes/` |
-| **Claude Code** | `SessionStart` installs dependencies; `PostToolUse` formats edited files (`.claude/settings.json`) |
 
 Every hook can be toggled live from the **Automation** page.
 
@@ -77,14 +97,19 @@ The UI has:
 
 ## Quick start
 
-Prerequisites: **Python 3.11+ with [uv](https://docs.astral.sh/uv/)** and **Node 20+**.
+Prerequisites: **[uv](https://docs.astral.sh/uv/)** (installs Python for you) and **Node 20+**.
+
+- **Windows:** double-click `scripts\start-windows.bat`
+- **macOS / Linux:** `./scripts/start.sh`
+
+Both build the app on first run and open http://localhost:8000. For development with hot reload:
 
 ```bash
 make install     # uv sync + npm install
 make dev         # API on :8000 + web on :5173
 ```
 
-Open http://localhost:5173 and sign in as **parth@intelliinventory.dev** (owner/admin) or **ananya@intelliinventory.dev** (manager) with password **demo1234**. Demo data (37 products, 120 days of history) is seeded on first start.
+Dev server: http://localhost:5173. Sign in as **parth@intelliinventory.dev** (owner/admin) or **ananya@intelliinventory.dev** (manager) with password **demo1234**. Demo data (37 products, 120 days of history) is seeded on first start.
 
 **Single container:**
 
@@ -95,6 +120,21 @@ docker compose --profile postgres up --build  # + PostgreSQL 17 (set DATABASE_UR
 ```
 
 Production build without Docker: `make build`, then `make api`. FastAPI serves the SPA from `frontend/dist`.
+
+## Free deployment (demo link + your real shop)
+
+**Hugging Face Spaces** (free CPU: 2 vCPU / 16 GB RAM) runs the whole app *and* Hermes (Ollama + `hermes3:3b`) in one container.
+Your real shop's data lives in **Neon** free Postgres, so restarts never lose it.
+
+1. Create a Docker Space and upload `deploy/huggingface/Dockerfile` and `deploy/huggingface/README.md`. It builds the
+   latest code from this repo.
+2. Demo Space: nothing else needed (`DEMO_MODE` defaults to `true`).
+3. Real-shop Space: set `DEMO_MODE=false` and secrets `DATABASE_URL` (Neon), `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
+   `SECRET_KEY`, `INTEGRATION_TOKEN`.
+4. Optional: add GitHub secret `HF_TOKEN` and variable `HF_SPACES` so every push to `main` rebuilds both Spaces.
+
+Full walkthrough: [docs/TUTORIAL.md](docs/TUTORIAL.md#15-free-deploy--2-links). Free Spaces sleep after 48 hours without
+visitors and wake on the next visit. Forgot the admin password? `uv run python -m app.cli reset-password <email> <new>`.
 
 ---
 
@@ -137,7 +177,7 @@ mcp_servers:
 
 The tools then appear as `mcp_intelliinventory_*`. With the Hermes gateway you can ask about your inventory from Telegram, Discord, Slack or WhatsApp. The pack also installs a guardrail plugin, a gateway audit hook and a skill with operating playbooks.
 
-**Claude Code:** the repo ships a `.mcp.json`, so the tools are available as soon as you open the project. For another project, run `claude mcp add intelliinventory -- uv run --directory backend python -m app.mcp_server`.
+**Other MCP clients** (Cursor, VS Code, Continue, LM Studio…): the repo ships a `.mcp.json`; or point any client at `http://localhost:8000/mcp/` with the bearer token.
 
 ---
 
@@ -154,7 +194,7 @@ flowchart LR
   API --> RT[Agent runtime<br/>copilot + 4 specialists]
   RT -->|pre/post hooks| HK[Lifecycle hooks<br/>guardrails · approvals]
   RT --> P1[Hermes] & P3[Offline]
-  RT --> TOOLS[Tool registry · 22 tools]
+  RT --> TOOLS[Tool registry · 28 tools]
   MCP[MCP server] --> TOOLS
   HERMES[Hermes Agent / any MCP client] --> MCP
   TOOLS --> SVC
@@ -164,8 +204,8 @@ flowchart LR
 backend/app
   agents/      toolkit.py (typed tool registry) · tools.py · hooks.py · registry.py · runtime.py · providers/
   hooks/       bus.py (event bus) · builtin.py · webhooks.py
-  services/    inventory · purchasing · analytics · simulator · suppliers · counts · importer · scheduler
-  api/         auth · catalog · operations · insights · agents · automation
+  services/    inventory · purchasing · billing · india (GST, festivals) · gst_ai · analytics · simulator · suppliers · counts · importer · scheduler
+  api/         auth · catalog · operations · insights · india · billing · agents · automation
   plugins/     drop-in plugins (budget_guard example)
   mcp_server.py · seed.py · models.py · security.py · main.py
 frontend/src
@@ -176,7 +216,7 @@ integrations/hermes   Hermes Agent plugin, gateway hook, skill, installer
 ## Development
 
 ```bash
-make test    # pytest (analytics, lifecycle, hooks, agents, Hermes provider over mocked HTTP, India/GST, API, MCP, autopilot e2e) + vitest
+make test    # pytest (analytics, lifecycle, billing, GST, festivals, hooks, agents, Hermes provider over mocked HTTP, API, MCP, autopilot e2e) + vitest
 make lint    # ruff + oxlint + tsc
 make migrate # Alembic migrations (backend/migrations) for Postgres / production
 ```
@@ -200,7 +240,7 @@ Configuration lives in [`.env.example`](.env.example). Every value is optional.
 **Ops:**
 - Docker (multi-stage) and docker-compose, with optional Ollama and Postgres
 - GitHub Actions CI
-- Claude Code hooks
+- Hugging Face Spaces deploy (Docker + Ollama), GitHub Action rebuilds
 
 ## License
 MIT

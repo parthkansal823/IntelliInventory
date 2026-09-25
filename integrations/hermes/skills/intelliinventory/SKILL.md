@@ -1,6 +1,6 @@
 ---
 name: intelliinventory
-description: Operate the IntelliInventory system through its MCP tools — check stock health, forecast demand, plan replenishment, draft purchase orders and investigate anomalies. Use whenever the user asks about inventory, stock, reorders, suppliers or warehouse operations.
+description: Operate the IntelliInventory system (Indian shops) through its MCP tools — stock health, forecasts, reorders, purchase orders, anomalies, billing and udhaar (khata), GST and festival stock planning. Use whenever the user asks about inventory, stock, reorders, suppliers, sales, bills, udhaar, GST or festival preparation — in English, Hindi or Hinglish.
 ---
 
 # IntelliInventory operations
@@ -9,6 +9,8 @@ IntelliInventory tools are exposed through MCP as `mcp_intelliinventory_<tool>`.
 
 ## Ground rules
 - Never guess numbers — call a tool. Refer to products as "Name (SKU)".
+- Money is Indian rupees: write ₹1,23,456 (lakh/crore grouping). Dates are IST. Reply in the user's language
+  (English, Hindi or Hinglish).
 - Draft purchase orders are safe. `adjust_stock`, `transfer_stock`, `update_purchase_order_status` and
   `update_reorder_settings` return `pending_approval`: tell the user a manager must approve it in the
   IntelliInventory UI (Copilot → Approvals). Do not retry.
@@ -35,6 +37,21 @@ IntelliInventory tools are exposed through MCP as `mcp_intelliinventory_<tool>`.
 1. `detect_anomalies`
 2. `get_stock_movements` for the SKU (14–30 days)
 3. Quantify impact in units and value; propose `start_cycle_count` (scope `A`) or an `adjust_stock`.
+
+**"Aaj ki sale?" / sales today**
+1. `billing_summary` (days 1 or 7) → today's sales, bills, UPI vs cash, udhaar outstanding.
+
+**"Kiska udhaar baaki hai?" / who owes money**
+1. `customer_dues` → list customers, balance, days outstanding; suggest a WhatsApp reminder from Billing → Khata.
+2. For one bill: `get_invoice` with the number (e.g. `INV/26-27/00007`).
+
+**Festival preparation ("Diwali ke liye kya stock karna hai?")**
+1. `plan_festival_stock` (festival name optional — defaults to the next one).
+2. Report products to order, quantities and **order-by dates**; offer to draft POs with `create_purchase_order`.
+
+**GST**
+1. `gst_summary` for output tax vs input tax credit by slab (GST can be switched off by the shop).
+2. `suggest_gst` for the HSN code and slab of a product name — always add "confirm with your CA".
 
 ## Resources & prompts
 - Resources: `inventory://summary`, `inventory://reorder`

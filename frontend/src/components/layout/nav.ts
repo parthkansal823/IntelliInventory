@@ -1,9 +1,9 @@
-import { Bot, Boxes, ClipboardList, LayoutDashboard, Lightbulb, Receipt, ScanLine, Settings, ShoppingCart, Workflow } from 'lucide-react'
+import { Bot, Boxes, ClipboardList, LayoutDashboard, Lightbulb, ReceiptIndianRupee, ScanLine, Settings, ShoppingCart, Workflow } from 'lucide-react'
 
 /** Sidebar, grouped by how often a shop uses each page. `key` = the "g <key>" keyboard shortcut. */
 export const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, key: 'd', section: 'Daily' },
-  { to: '/billing', label: 'Billing', icon: Receipt, key: 'b', section: 'Daily' },
+  { to: '/billing', label: 'Billing', icon: ReceiptIndianRupee, key: 'b', section: 'Daily' },
   { to: '/inventory', label: 'Stock', icon: Boxes, key: 'i', section: 'Daily' },
   { to: '/scan', label: 'Scan', icon: ScanLine, key: 's', section: 'Daily' },
   { to: '/purchase-orders', label: 'Purchase orders', icon: ShoppingCart, key: 'p', section: 'Planning' },

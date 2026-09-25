@@ -86,12 +86,16 @@ export async function printInvoice(inv: InvoiceDetail, size: 'a4' | 'thermal' = 
   const date = new Date(inv.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' })
   const gst = inv.kind !== 'bill_of_supply'
   const rows = inv.lines
-    .map(
-      (l, i) => `<tr><td>${i + 1}</td><td>${esc(l.name)}${gst && l.hsn_code ? `<div class="m">HSN ${esc(l.hsn_code)}</div>` : ''}</td><td class="r">${l.quantity}</td><td class="r">${money(l.unit_price)}</td>${
-        size === 'a4' ? `<td class="r">${l.discount_pct ? `${l.discount_pct}%` : ''}</td>${gst ? `<td class="r">${l.gst_rate}%</td>` : ''}` : ''
-      }<td class="r">${money(l.total)}</td></tr>`,
+    .map((l, i) =>
+      size === 'thermal'
+        ? `<tr><td>${esc(l.name)}<div class="m">${l.quantity} × ${money(l.unit_price)}${l.discount_pct ? ` − ${l.discount_pct}%` : ''}${gst && l.gst_rate ? ` · GST ${l.gst_rate}%` : ''}</div></td><td class="r">${money(l.total)}</td></tr>`
+        : `<tr><td>${i + 1}</td><td>${esc(l.name)}${gst && l.hsn_code ? `<div class="m">HSN ${esc(l.hsn_code)}</div>` : ''}</td><td class="r">${l.quantity}</td><td class="r">${money(l.unit_price)}</td><td class="r">${l.discount_pct ? `${l.discount_pct}%` : '—'}</td>${gst ? `<td class="r">${l.gst_rate}%</td>` : ''}<td class="r">${money(l.total)}</td></tr>`,
     )
     .join('')
+  const head =
+    size === 'thermal'
+      ? '<tr><th>Item</th><th class="r">Amount</th></tr>'
+      : `<tr><th>#</th><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc</th>${gst ? '<th class="r">GST</th>' : ''}<th class="r">Amount</th></tr>`
   const taxRows = gst
     ? inv.interstate
       ? `<tr><td>IGST</td><td class="r">${money(inv.igst)}</td></tr>`
@@ -105,10 +109,10 @@ export async function printInvoice(inv: InvoiceDetail, size: 'a4' | 'thermal' = 
       : ''
   const css =
     size === 'thermal'
-      ? `@page{size:80mm auto;margin:3mm}body{width:74mm;font:12px/1.35 ui-monospace,monospace}h1{font-size:15px;text-align:center}.c{text-align:center}.t td,.t th{padding:2px 0}`
-      : `@page{size:A4;margin:14mm}body{font:13px/1.45 system-ui,sans-serif}h1{font-size:20px}.t td,.t th{padding:6px 8px;border-bottom:1px solid #ddd}.t th{background:#f4f4f5;text-align:left}.head{display:flex;justify-content:space-between;gap:24px}.box{border:1px solid #ddd;border-radius:8px;padding:10px 12px}`
+      ? `@page{size:80mm auto;margin:3mm}body{width:74mm;font:12px/1.35 ui-monospace,monospace}h1{font-size:15px;text-align:center}.c{text-align:center}.t td,.t th{padding:3px 0;border-bottom:1px dashed #999;vertical-align:top}.t td.r{padding-left:6px;white-space:nowrap}`
+      : `@page{size:A4;margin:14mm}body{font:13px/1.45 system-ui,sans-serif}h1{font-size:20px}.t td,.t th{padding:6px 8px;border-bottom:1px solid #ddd}.t th{background:#f4f4f5}.head{display:flex;justify-content:space-between;gap:24px}.box{border:1px solid #ddd;border-radius:8px;padding:10px 12px}`
   w.document.write(`<!doctype html><html><head><title>${esc(inv.number)}</title><style>
-    *{box-sizing:border-box}body{margin:0;color:#111}h1{margin:0 0 2px}.m{color:#666;font-size:11px}.r{text-align:right}.t{width:100%;border-collapse:collapse;margin:10px 0}
+    *{box-sizing:border-box}body{margin:0;color:#111}h1{margin:0 0 2px}.m{color:#666;font-size:11px}.r,.t th.r,.t td.r{text-align:right}.t{width:100%;border-collapse:collapse;margin:10px 0}.t th{text-align:left}
     .tot td{padding:2px 0}.grand td{font-weight:700;font-size:1.15em;border-top:1px solid #111;padding-top:4px}.words{margin:6px 0;font-style:italic}.foot{margin-top:18px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
     .badge{display:inline-block;border:1px solid #111;border-radius:4px;padding:1px 6px;font-size:11px;letter-spacing:.04em;text-transform:uppercase}.hsn{font-size:11px}${css}
   </style></head><body>
@@ -117,7 +121,7 @@ export async function printInvoice(inv: InvoiceDetail, size: 'a4' | 'thermal' = 
     <div${size === 'a4' ? ' class="r"' : ''}><div class="badge">${esc(inv.title)}</div><div><b>${esc(inv.number)}</b></div><div class="m">${date}</div>${inv.status === 'cancelled' ? '<div class="badge">Cancelled</div>' : ''}</div>
   </div>
   <div class="${size === 'a4' ? 'box' : ''}" style="margin-top:10px"><div class="m">Bill to</div><b>${esc(inv.customer_name)}</b>${inv.customer_phone ? ` · ${esc(inv.customer_phone)}` : ''}${inv.customer_address ? `<div class="m">${esc(inv.customer_address)}</div>` : ''}${inv.customer_gstin ? `<div class="m">GSTIN: ${esc(inv.customer_gstin)}</div>` : ''}${gst && inv.place_of_supply ? `<div class="m">Place of supply: ${esc(inv.place_of_supply)}</div>` : ''}</div>
-  <table class="t"><thead><tr><th>#</th><th>Item</th><th class="r">Qty</th><th class="r">Rate</th>${size === 'a4' ? `<th class="r">Disc</th>${gst ? '<th class="r">GST</th>' : ''}` : ''}<th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+  <table class="t"><thead>${head}</thead><tbody>${rows}</tbody></table>
   <table class="tot" style="margin-left:auto;min-width:${size === 'a4' ? '260px' : '100%'}">
     ${inv.discount ? `<tr><td>Discount</td><td class="r">−${money(inv.discount)}</td></tr>` : ''}
     <tr><td>Taxable value</td><td class="r">${money(inv.taxable)}</td></tr>${taxRows}

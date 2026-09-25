@@ -7,7 +7,7 @@ import {
   IndianRupee,
   PackageX,
   Radar,
-  Receipt,
+  ReceiptIndianRupee,
   RefreshCw,
   ShoppingCart,
   Sparkles,
@@ -362,7 +362,7 @@ function TodayBillingCard() {
   return (
     <Link to="/billing" className="group block h-full">
       <Card className="flex h-full items-center gap-4 p-4 transition group-hover:border-brand/50">
-        <div className="grid size-11 place-items-center rounded-xl bg-brand-soft text-brand"><Receipt className="size-5" /></div>
+        <div className="grid size-11 place-items-center rounded-xl bg-brand-soft text-brand"><ReceiptIndianRupee className="size-5" /></div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">Today: {money(s.today.sales)} from {s.today.bills} bill{s.today.bills === 1 ? '' : 's'}</div>
           <div className="text-sm text-muted">

@@ -12,6 +12,7 @@ import json
 import re
 import uuid
 from collections.abc import AsyncIterator
+from datetime import date
 from typing import Any
 
 from rapidfuzz import fuzz, process
@@ -77,6 +78,12 @@ def normalize(text: str) -> str:
     for pattern, repl in HINGLISH:
         text = re.sub(pattern, repl, text)
     return text
+
+
+def _d(iso: str, year: bool = False) -> str:
+    """Indian-style short date: 2026-10-04 -> "4 Oct" (or "4 Oct 2026")."""
+    day = date.fromisoformat(iso[:10])
+    return f"{day.day} {day:%b}" + (f" {day.year}" if year else "")
 
 
 def _has(text: str, *words: str) -> bool:
@@ -702,15 +709,15 @@ class OfflineProvider(Provider):
         s = d["summary"]
         cats = ", ".join(f"{k} ×{v:g}" for k, v in list(f["categories"].items())[:4])
         head = (
-            f"### {f['emoji']} {f['name']} — {f['date']} ({f['days_away']} days away)\n"
-            f"Buying window starts **{f['buying_starts']}**. Demand lift: {cats}.\n\n"
+            f"### {f['emoji']} {f['name']} — {_d(f['date'], year=True)} ({f['days_away']} days away)\n"
+            f"Buying window starts **{_d(f['buying_starts'])}**. Demand lift: {cats}.\n\n"
             f"- {s['products_affected']} products affected · ~{s['extra_units']:,} extra units · "
             f"~{self._money(s['extra_revenue'])} extra revenue\n"
             f"- **{s['products_to_order']}** need stock-up · order value {self._money(s['order_value'])}"
-            + (f" · first order by **{s['earliest_order_by']}**" if s["earliest_order_by"] else "")
+            + (f" · first order by **{_d(s['earliest_order_by'])}**" if s["earliest_order_by"] else "")
             + "\n\n"
         )
-        rows = [{**i, "when": ("⚠️ " if i["urgent"] else "") + i["order_by"]} for i in d["items"]]
+        rows = [{**i, "when": ("⚠️ " if i["urgent"] else "") + _d(i["order_by"])} for i in d["items"]]
         table = (
             self._table(
                 rows,

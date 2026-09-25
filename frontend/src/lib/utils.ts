@@ -11,9 +11,10 @@ const num = new Intl.NumberFormat('en-IN')
 const compact = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 })
 
 export const money = (v: number | null | undefined) => (v == null ? '—' : Math.abs(v) >= 100 ? inr0.format(v) : inr2.format(v))
-export const moneyCompact = (v: number | null | undefined) => (v == null ? '—' : compactInr.format(v))
+// Below 1 lakh show the full amount (en-IN "compact" would print ₹28.5T for thousands, which confuses people).
+export const moneyCompact = (v: number | null | undefined) => (v == null ? '—' : Math.abs(v) < 100_000 ? inr0.format(v) : compactInr.format(v))
 export const number = (v: number | null | undefined) => (v == null ? '—' : num.format(v))
-export const numberCompact = (v: number | null | undefined) => (v == null ? '—' : compact.format(v))
+export const numberCompact = (v: number | null | undefined) => (v == null ? '—' : Math.abs(v) < 100_000 ? num.format(Math.round(v)) : compact.format(v))
 export const pct = (v: number | null | undefined, digits = 1) => (v == null ? '—' : `${v.toFixed(digits)}%`)
 
 /** India-only app: every date/time is shown in IST with Indian formatting. */

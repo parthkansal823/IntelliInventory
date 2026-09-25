@@ -1,5 +1,5 @@
 /** Billing: make a bill in 3 steps (items → customer → payment), invoices list and the udhaar khata. */
-import { BookUser, Camera, CameraOff, Download, IndianRupee, MessageCircle, Minus, Plus, Printer, QrCode, Receipt, Search, Trash2, Wallet, X } from 'lucide-react'
+import { BookUser, Camera, CameraOff, Download, IndianRupee, MessageCircle, Minus, Plus, Printer, QrCode, ReceiptIndianRupee, Search, Trash2, Wallet, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
@@ -32,7 +32,7 @@ export default function Billing() {
       <SummaryStrip />
       <Tabs value={params.get('tab') ?? 'new'} onValueChange={(tab) => setParams({ tab }, { replace: true })}>
         <TabsList>
-          <TabsTrigger value="new"><Receipt className="size-4" /> New bill</TabsTrigger>
+          <TabsTrigger value="new"><ReceiptIndianRupee className="size-4" /> New bill</TabsTrigger>
           <TabsTrigger value="invoices"><IndianRupee className="size-4" /> All bills</TabsTrigger>
           <TabsTrigger value="khata"><BookUser className="size-4" /> Khata (udhaar)</TabsTrigger>
         </TabsList>
@@ -50,7 +50,7 @@ function SummaryStrip() {
   const items = [
     { label: "Today's sales", value: money(s?.today.sales), hint: `${s?.today.bills ?? 0} bills` },
     { label: 'Last 7 days', value: money(s?.period.sales), hint: `${s?.period.bills ?? 0} bills · avg ${money(s?.period.avg_bill)}` },
-    { label: 'Udhaar to collect', value: money(s?.outstanding), hint: `${s?.customers_with_dues ?? 0} customers`, tone: s?.outstanding ? 'text-critical' : '' },
+    { label: 'Udhaar to collect', value: money(s?.outstanding), hint: `${s?.customers_with_dues ?? 0} customer${s?.customers_with_dues === 1 ? '' : 's'}`, tone: s?.outstanding ? 'text-critical' : '' },
     { label: 'Collected by UPI (7d)', value: money(s?.collected_by_mode.upi ?? 0), hint: `cash ${money(s?.collected_by_mode.cash ?? 0)}` },
   ]
   return (
@@ -120,7 +120,8 @@ function NewBill({ onSaved }: { onSaved: (id: number) => void }) {
     setLines((ls) => {
       const found = ls.find((l) => l.product_id === p.id)
       if (found) return ls.map((l) => (l.product_id === p.id ? { ...l, quantity: l.quantity + 1 } : l))
-      const price = inclusive && gstOn ? paise(p.unit_price * (1 + rate / 100)) : p.unit_price
+      // MRP-style prices are whole rupees; B2B (GST-exclusive) prices keep paise
+      const price = inclusive && gstOn ? Math.round(p.unit_price * (1 + rate / 100)) : p.unit_price
       return [...ls, { product_id: p.id, sku: p.sku, name: p.name, quantity: 1, unit_price: price, discount_pct: 0, gst_rate: rate, stock: p.on_hand ?? 0 }]
     })
     setQuery('')
@@ -228,14 +229,14 @@ function NewBill({ onSaved }: { onSaved: (id: number) => void }) {
             )}
           </div>
           {!lines.length ? (
-            <EmptyState icon={<Receipt className="size-6" />} title="No items yet" description="Search above or scan a barcode to start the bill." />
+            <EmptyState icon={<ReceiptIndianRupee className="size-6" />} title="No items yet" description="Search above or scan a barcode to start the bill." />
           ) : (
             <Table>
               <thead>
                 <tr>
                   <Th>Item</Th>
                   <Th className="w-32 text-center">Qty</Th>
-                  <Th className="w-28 text-right">Price</Th>
+                  <Th className="w-32 text-right">Price</Th>
                   <Th className="w-20 text-right">Disc %</Th>
                   <Th className="text-right">Amount</Th>
                   <Th className="w-8" />
@@ -367,7 +368,7 @@ function NewBill({ onSaved }: { onSaved: (id: number) => void }) {
             <div className="flex gap-2">
               <Button variant="ghost" onClick={reset} disabled={!lines.length}><X className="size-4" /> Clear</Button>
               <Button size="lg" className="flex-1" disabled={blocked} loading={save.isPending} onClick={() => save.mutate(undefined)}>
-                <Receipt className="size-4" /> Save bill
+                <ReceiptIndianRupee className="size-4" /> Save bill
               </Button>
             </div>
           </div>

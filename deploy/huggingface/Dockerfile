@@ -27,7 +27,7 @@ RUN mkdir -p /opt/ollama/models \
  && ollama pull ${HERMES_MODEL} \
  && chmod -R a+rwX /opt/ollama
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+RUN pip install --no-cache-dir uv
 RUN useradd -m -u 1000 user
 WORKDIR /app/backend
 COPY --from=src /src/backend/ ./
