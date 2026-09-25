@@ -7,10 +7,15 @@ Make GST bills in 3 steps, collect by UPI QR (no gateway fee), track udhaar, pla
 The AI runs on **Hermes** (Nous Research, free and local via Ollama) or a built-in **offline planner** — no paid API anywhere.
 Every AI action passes through lifecycle **hooks**, and anything that changes stock waits for a human to approve it.
 
-> 📘 **New here? Read the step-by-step [Hinglish tutorial](docs/TUTORIAL.md)** — run it on Windows, make bills, GST,
-> khata, AI copilot, and put it online for free (a demo link + your real shop).
+> 📘 **New here? Read the step-by-step [Hinglish tutorial](docs/TUTORIAL.md)** or watch the
+> [66-second video](frontend/public/tutorial.webm). The whole app switches between **English and हिंदी** (EN / हिं in the
+> top bar), and a short tutorial opens on the first login. Demo shop: **Kansal General Store, Kharar (Punjab)**.
 
 ![Dashboard](docs/screenshots/dashboard.png)
+
+| हिंदी dashboard | First-login tutorial |
+|---|---|
+| ![Hindi](docs/screenshots/dashboard-hi.png) | ![Tutorial](docs/screenshots/onboarding.png) |
 
 | Billing (UPI QR, split, udhaar) | GST tax invoice (print / WhatsApp) |
 |---|---|
@@ -25,6 +30,15 @@ Every AI action passes through lifecycle **hooks**, and anything that changes st
 ---
 
 ## Features
+
+### Made for Indian general stores
+- **English / हिंदी UI**, first-login tutorial (reopen with ❓) and a captioned walkthrough video.
+- **Barcode everywhere**: USB scanners work out of the box in billing; phone/laptop camera scanning in billing, the
+  Scan page and the product form; EAN-13 barcode, unit and expiry date on every product.
+- **Expiry alerts** (dashboard + "Expiring soon" filter + Copilot) and **"Aaj ka hisaab"** day-end closing: sale,
+  cash in the galla, UPI/card, udhaar given and collected, top items — print or WhatsApp.
+- **Region-aware festivals**: all-India festivals plus the ones for the shop's state (Lohri, Baisakhi, Gurpurab, Durga
+  Puja, Chhath, Pongal, Ugadi/Gudi Padwa, Bihu, Onam, Ganesh Chaturthi, Karwa Chauth…).
 
 ### Made for India
 - **Billing**: tax invoice / bill of supply / zero-rated export invoice, CGST+SGST or IGST from the place of supply,

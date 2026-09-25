@@ -2,6 +2,7 @@ import {
   Activity,
   Bot,
   Boxes,
+  CalendarClock,
   ChevronRight,
   Gauge,
   IndianRupee,
@@ -22,15 +23,17 @@ import { BarList, SalesTrendChart, StockHealth } from '@/components/charts'
 import { Actor, Kpi, MarkdownView, SeverityIcon, StatusBadge } from '@/components/domain'
 import { NextFestivalCard } from '@/components/india'
 import { Badge, Button, Card, CardHeader, EmptyState, Skeleton } from '@/components/ui'
-import { keys, useAction, useAlerts, useBillingSummary, useDashboard, useHealth, useProducts, useReorder, useReports } from '@/hooks/queries'
+import { keys, useAction, useAlerts, useBillingSummary, useExpiring, useDashboard, useHealth, useProducts, useReorder, useReports } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { useLiveEvents } from '@/hooks/useLiveEvents'
 import { post } from '@/lib/api'
 import { canSpeak, speak, stopSpeaking } from '@/lib/speech'
 import type { ProductRow } from '@/lib/types'
 import { cn, greeting, IST, money, moneyCompact, number, relativeTime, titleCase } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 export default function Dashboard() {
+  const t = useT()
   const { user, can } = useAuth()
   const navigate = useNavigate()
   const dash = useDashboard()
@@ -47,41 +50,42 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">
-            {greeting()}, {user?.name.split(' ')[0]} 👋
+            {t(greeting())}, {user?.name.split(' ')[0]} 👋
           </h1>
           <p className="mt-1 text-sm text-muted">
-            {new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric', timeZone: IST })} · here's what needs your attention.
+            {new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric', timeZone: IST })} · {t("here's what needs your attention.")}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => navigate('/copilot?q=What%20should%20I%20reorder%20today%3F')}>
-            <Sparkles className="size-4" /> Ask Copilot
+            <Sparkles className="size-4" /> {t('Ask Copilot')}
           </Button>
           {can('staff') && (
             <Button onClick={() => draftAll.mutate(undefined)} loading={draftAll.isPending} disabled={!k?.reorder_needed}>
-              <ShoppingCart className="size-4" /> Draft reorder POs{k?.reorder_needed ? ` (${k.reorder_needed})` : ''}
+              <ShoppingCart className="size-4" /> {t('Draft reorder POs')}{k?.reorder_needed ? ` (${k.reorder_needed})` : ''}
             </Button>
           )}
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <TodayBillingCard />
         <NextFestivalCard />
+        <ExpiringCard />
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <Kpi label="Inventory value" value={moneyCompact(k?.inventory_value)} icon={<IndianRupee className="size-4" />} hint={`${number(k?.total_units)} units`} loading={dash.isLoading} />
-        <Kpi label="Revenue · 30d" value={moneyCompact(k?.revenue_30d)} icon={<TrendingUp className="size-4" />} delta={k?.revenue_change_pct} hint="vs prior 30d" loading={dash.isLoading} />
-        <Kpi label="Active SKUs" value={number(k?.total_skus)} icon={<Boxes className="size-4" />} hint={`${k?.overstock ?? 0} overstocked`} loading={dash.isLoading} />
-        <Kpi label="Low / critical" value={number(k?.low_stock)} icon={<TriangleAlert className="size-4" />} tone={k?.low_stock ? 'warning' : 'good'} hint={`${k?.reorder_needed ?? 0} need reorder`} loading={dash.isLoading} />
-        <Kpi label="Out of stock" value={number(k?.out_of_stock)} icon={<PackageX className="size-4" />} tone={k?.out_of_stock ? 'critical' : 'good'} hint="losing sales now" loading={dash.isLoading} />
-        <Kpi label="Open POs" value={number(k?.open_purchase_orders)} icon={<ShoppingCart className="size-4" />} hint={`${k?.open_alerts ?? 0} open alerts`} loading={dash.isLoading} />
+        <Kpi label={t('Inventory value')} value={moneyCompact(k?.inventory_value)} icon={<IndianRupee className="size-4" />} hint={`${number(k?.total_units)} ${t('units')}`} loading={dash.isLoading} />
+        <Kpi label={t('Revenue · 30d')} value={moneyCompact(k?.revenue_30d)} icon={<TrendingUp className="size-4" />} delta={k?.revenue_change_pct} hint={t('vs prior 30d')} loading={dash.isLoading} />
+        <Kpi label={t('Active SKUs')} value={number(k?.total_skus)} icon={<Boxes className="size-4" />} hint={`${k?.overstock ?? 0} ${t('overstocked')}`} loading={dash.isLoading} />
+        <Kpi label={t('Low / critical')} value={number(k?.low_stock)} icon={<TriangleAlert className="size-4" />} tone={k?.low_stock ? 'warning' : 'good'} hint={`${k?.reorder_needed ?? 0} ${t('need reorder')}`} loading={dash.isLoading} />
+        <Kpi label={t('Out of stock')} value={number(k?.out_of_stock)} icon={<PackageX className="size-4" />} tone={k?.out_of_stock ? 'critical' : 'good'} hint={t('losing sales now')} loading={dash.isLoading} />
+        <Kpi label={t('Open POs')} value={number(k?.open_purchase_orders)} icon={<ShoppingCart className="size-4" />} hint={`${k?.open_alerts ?? 0} ${t('open alerts')}`} loading={dash.isLoading} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Revenue · last 30 days" description="Daily sales revenue across all warehouses" icon={<TrendingUp className="size-4" />} />
+          <CardHeader title={t('Revenue · last 30 days')} description={t('Daily sales revenue across all warehouses')} icon={<TrendingUp className="size-4" />} />
           <div className="px-3 pb-3">{dash.data ? <SalesTrendChart data={dash.data.sales_trend} height={330} /> : <Skeleton className="mx-2 h-80" />}</div>
         </Card>
         <HealthCard />
@@ -95,7 +99,7 @@ export default function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-3">
         <StockoutRadar />
         <Card>
-          <CardHeader title="Stock health" description="SKUs by replenishment status" />
+          <CardHeader title={t('Stock health')} description={t('SKUs by replenishment status')} />
           <div className="px-5 pb-5">{dash.data ? <StockHealth data={dash.data.status_breakdown} /> : <Skeleton className="h-40" />}</div>
         </Card>
       </div>
@@ -103,7 +107,7 @@ export default function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-3">
         <ReorderCard />
         <Card>
-          <CardHeader title="Stock value by category" />
+          <CardHeader title={t('Stock value by category')} />
           <div className="px-5 pb-5">
             {dash.data ? <BarList items={dash.data.category_value.map((c) => ({ label: c.category, value: c.value, key: c.category }))} format={moneyCompact} /> : <Skeleton className="h-48" />}
           </div>
@@ -115,13 +119,14 @@ export default function Dashboard() {
 }
 
 function HealthCard() {
+  const t = useT()
   const health = useHealth()
   const h = health.data
   const color = !h ? 'var(--border)' : h.score >= 85 ? 'var(--color-good)' : h.score >= 70 ? 'var(--color-warning)' : 'var(--color-critical)'
   const circumference = 2 * Math.PI * 52
   return (
     <Card>
-      <CardHeader title="Inventory health score" description="Availability, risk, capital, coverage & accuracy" icon={<Gauge className="size-4" />} />
+      <CardHeader title={t('Inventory health score')} description={t('Availability, risk, capital, coverage & accuracy')} icon={<Gauge className="size-4" />} />
       <div className="px-5 pb-5">
         {!h ? (
           <Skeleton className="h-56" />
@@ -163,6 +168,7 @@ function HealthCard() {
 }
 
 function BriefingCard() {
+  const t = useT()
   const reports = useReports()
   const { can } = useAuth()
   const [speaking, setSpeaking] = useState(false)
@@ -171,7 +177,7 @@ function BriefingCard() {
   return (
     <Card className="lg:col-span-2">
       <CardHeader
-        title="AI morning briefing"
+        title={t('AI morning briefing')}
         description={latest ? `Written by the Copilot agent · ${relativeTime(latest.created_at)}` : 'Generated daily by the Copilot agent'}
         icon={<Bot className="size-4" />}
         action={
@@ -196,28 +202,29 @@ function BriefingCard() {
             )}
             {can('manager') && (
               <Button variant="secondary" size="sm" onClick={() => regenerate.mutate(undefined)} loading={regenerate.isPending}>
-                <RefreshCw className="size-3.5" /> Regenerate
+                <RefreshCw className="size-3.5" /> {t('Regenerate')}
               </Button>
             )}
           </div>
         }
       />
       <div className="max-h-96 overflow-y-auto px-5 pb-5">
-        {reports.isLoading ? <Skeleton className="h-48" /> : latest ? <MarkdownView>{latest.content}</MarkdownView> : <EmptyState title="No briefing yet" description="The scheduler writes one every morning." />}
+        {reports.isLoading ? <Skeleton className="h-48" /> : latest ? <MarkdownView>{latest.content}</MarkdownView> : <EmptyState title={t('No briefing yet')} description={t('The scheduler writes one every morning.')} />}
       </div>
     </Card>
   )
 }
 
 function AlertsCard() {
+  const t = useT()
   const alerts = useAlerts()
   const list = alerts.data ?? []
   return (
     <Card>
-      <CardHeader title="Alerts" description={`${list.length} open`} icon={<TriangleAlert className="size-4" />} />
+      <CardHeader title={t('Alerts')} description={`${list.length} open`} icon={<TriangleAlert className="size-4" />} />
       <ul className="max-h-96 divide-y divide-border overflow-y-auto">
         {alerts.isLoading && <Skeleton className="m-5 h-32" />}
-        {!alerts.isLoading && !list.length && <EmptyState title="All clear" description="No open alerts." />}
+        {!alerts.isLoading && !list.length && <EmptyState title={t('All clear')} description={t('No open alerts.')} />}
         {list.slice(0, 12).map((a) => (
           <li key={a.id} className="flex gap-3 px-5 py-3">
             <SeverityIcon severity={a.severity} className="mt-0.5" />
@@ -236,6 +243,7 @@ function AlertsCard() {
 
 /** Unique view: when will each item run out, and does an order placed today arrive in time? */
 function StockoutRadar() {
+  const t = useT()
   const products = useProducts()
   const HORIZON = 30
   const rows = useMemo(
@@ -249,13 +257,13 @@ function StockoutRadar() {
   return (
     <Card className="lg:col-span-2">
       <CardHeader
-        title="Stockout radar"
-        description="Days until each item runs out vs supplier lead time (next 30 days)"
+        title={t('Stockout radar')}
+        description={t('Days until each item runs out vs supplier lead time (next 30 days)')}
         icon={<Radar className="size-4" />}
         action={
           <div className="hidden items-center gap-3 text-xs text-muted sm:flex">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm bg-[var(--chart-1)]/60" />Stock left</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm bg-critical/30" />Gap if ordered today</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm bg-[var(--chart-1)]/60" />{t('Stock left')}</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm bg-critical/30" />{t('Gap if ordered today')}</span>
           </div>
         }
       />
@@ -263,7 +271,7 @@ function StockoutRadar() {
         {products.isLoading ? (
           <Skeleton className="h-48" />
         ) : !rows.length ? (
-          <EmptyState title="No stockouts in the next 30 days" />
+          <EmptyState title={t('No stockouts in the next 30 days')} />
         ) : (
           <ul className="space-y-3">
             {rows.map((p) => {
@@ -284,24 +292,25 @@ function StockoutRadar() {
                   </div>
                   <div className="flex w-32 items-center justify-end gap-1.5">
                     <span className={cn('text-xs tabular-nums', p.days_of_cover < lead ? 'font-medium text-critical' : 'text-muted')}>{p.days_of_cover.toFixed(1)}d</span>
-                    {p.on_order ? <Badge tone="info">on order</Badge> : <StatusBadge status={p.status} />}
+                    {p.on_order ? <Badge tone="info">{t('on order')}</Badge> : <StatusBadge status={p.status} />}
                   </div>
                 </li>
               )
             })}
           </ul>
         )}
-        <p className="mt-3 text-xs text-subtle">The tick marks the supplier lead time. A red gap means an order placed today still arrives after the stockout.</p>
+        <p className="mt-3 text-xs text-subtle">{t('The tick marks the supplier lead time. A red gap means an order placed today still arrives after the stockout.')}</p>
       </div>
     </Card>
   )
 }
 
 function ReorderCard() {
+  const t = useT()
   const recs = useReorder()
   return (
     <Card>
-      <CardHeader title="Reorder now" description="EOQ-based, MOQ-rounded" action={<Link to="/insights" className="text-xs text-brand hover:underline">View all</Link>} />
+      <CardHeader title={t('Reorder now')} description={t('EOQ-based, MOQ-rounded')} action={<Link to="/insights" className="text-xs text-brand hover:underline">{t('View all')}</Link>} />
       <ul className="divide-y divide-border">
         {recs.isLoading && <Skeleton className="m-5 h-40" />}
         {recs.data?.slice(0, 6).map((r) => (
@@ -316,20 +325,21 @@ function ReorderCard() {
             </div>
           </li>
         ))}
-        {recs.data && !recs.data.length && <EmptyState title="Nothing to reorder" />}
+        {recs.data && !recs.data.length && <EmptyState title={t('Nothing to reorder')} />}
       </ul>
     </Card>
   )
 }
 
 function LiveActivity() {
+  const t = useT()
   const { events, connected } = useLiveEvents()
   const visible = events.filter((e) => !e.type.startsWith('user.') && e.type !== 'hook.toggled').slice(0, 12)
   return (
     <Card>
-      <CardHeader title="Live activity" description={connected ? 'Streaming domain events' : 'Connecting…'} icon={<Activity className="size-4" />} />
+      <CardHeader title={t('Live activity')} description={connected ? 'Streaming domain events' : 'Connecting…'} icon={<Activity className="size-4" />} />
       <ul className="max-h-80 space-y-3 overflow-y-auto px-5 pb-5">
-        {!visible.length && <p className="text-sm text-muted">Events appear here in real time — try adjusting stock or chatting with Copilot.</p>}
+        {!visible.length && <p className="text-sm text-muted">{t('Events appear here in real time — try adjusting stock or chatting with Copilot.')}</p>}
         {visible.map((e) => (
           <li key={e.id} className="flex gap-2.5 animate-fade-in">
             <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand" />
@@ -357,6 +367,7 @@ function describeEvent(p: Record<string, unknown>): string {
 }
 
 function TodayBillingCard() {
+  const t = useT()
   const s = useBillingSummary(7).data
   if (!s) return null
   return (
@@ -364,12 +375,37 @@ function TodayBillingCard() {
       <Card className="flex h-full items-center gap-4 p-4 transition group-hover:border-brand/50">
         <div className="grid size-11 place-items-center rounded-xl bg-brand-soft text-brand"><ReceiptIndianRupee className="size-5" /></div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold">Today: {money(s.today.sales)} from {s.today.bills} bill{s.today.bills === 1 ? '' : 's'}</div>
+          <div className="text-sm font-semibold">{t('Today: {amount} from {n} bills', { amount: money(s.today.sales), n: s.today.bills })}</div>
           <div className="text-sm text-muted">
-            {s.outstanding ? <><span className="font-medium text-critical">{money(s.outstanding)}</span> udhaar to collect from {s.customers_with_dues} customer{s.customers_with_dues === 1 ? '' : 's'}</> : 'No udhaar pending'} · 7 days {moneyCompact(s.period.sales)}
+            {s.outstanding ? <><span className="font-medium text-critical">{money(s.outstanding)}</span> {t('udhaar to collect from {n} customer(s)', { n: s.customers_with_dues })}</> : t('No udhaar pending')} · {t('7 days')} {moneyCompact(s.period.sales)}
           </div>
         </div>
         <ChevronRight className="size-5 text-muted transition group-hover:translate-x-0.5" />
+      </Card>
+    </Link>
+  )
+}
+
+function ExpiringCard() {
+  const t = useT()
+  const items = useExpiring(15).data
+  if (!items) return null
+  const soon = items.slice(0, 3)
+  return (
+    <Link to="/inventory?filter=expiring" className="group block h-full">
+      <Card className={cn('flex h-full items-center gap-4 p-4 transition', items.length ? 'border-critical/30 group-hover:border-critical' : 'group-hover:border-brand/50')}>
+        <div className={cn('grid size-11 shrink-0 place-items-center rounded-xl', items.length ? 'bg-critical/10 text-critical' : 'bg-good/10 text-good')}>
+          <CalendarClock className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold">{items.length ? `${t('Expiring soon')}: ${items.length}` : t('Nothing expiring in the next 15 days')}</div>
+          {soon.length > 0 && (
+            <div className="truncate text-sm text-muted">
+              {soon.map((i) => `${i.name} (${i.days_left < 0 ? t('Expired') : `${i.days_left} ${t('days left')}`})`).join(' · ')}
+            </div>
+          )}
+        </div>
+        <ChevronRight className="size-5 shrink-0 text-muted transition group-hover:translate-x-0.5" />
       </Card>
     </Link>
   )

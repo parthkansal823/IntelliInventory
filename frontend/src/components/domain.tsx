@@ -15,6 +15,7 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import type { POStatus, StockStatus } from '@/lib/types'
 import { actorLabel, cn } from '@/lib/utils'
 import { Badge, Card, Skeleton, type Tone } from './ui'
+import { useT } from '@/lib/i18n'
 
 const Markdown = lazy(() => import('./Markdown'))
 
@@ -27,13 +28,14 @@ export const STATUS: Record<StockStatus, { label: string; tone: Tone; icon: type
 }
 
 export function StatusBadge({ status }: { status?: StockStatus }) {
+  const t = useT()
   if (!status) return null
   const s = STATUS[status]
   const Icon = s.icon
   return (
     <Badge tone={s.tone}>
       <Icon className="size-3" />
-      {s.label}
+      {t(s.label)}
     </Badge>
   )
 }
@@ -44,9 +46,10 @@ export function POStatusBadge({ status }: { status: POStatus }) {
 }
 
 export function SeverityIcon({ severity, className }: { severity: string; className?: string }) {
-  if (severity === 'critical') return <CircleX className={cn('size-4 shrink-0 text-critical', className)} aria-label="critical" />
-  if (severity === 'warning') return <TriangleAlert className={cn('size-4 shrink-0 text-[#d18f00] dark:text-warning', className)} aria-label="warning" />
-  return <Info className={cn('size-4 shrink-0 text-[#2a78d6] dark:text-[#86b6ef]', className)} aria-label="info" />
+  const t = useT()
+  if (severity === 'critical') return <CircleX className={cn('size-4 shrink-0 text-critical', className)} aria-label={t('critical')} />
+  if (severity === 'warning') return <TriangleAlert className={cn('size-4 shrink-0 text-[#d18f00] dark:text-warning', className)} aria-label={t('warning')} />
+  return <Info className={cn('size-4 shrink-0 text-[#2a78d6] dark:text-[#86b6ef]', className)} aria-label={t('info')} />
 }
 
 /** On-hand vs reorder point: bar fills to on-hand, tick marks the reorder point. */

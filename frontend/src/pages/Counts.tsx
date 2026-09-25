@@ -6,8 +6,10 @@ import { useAuth } from '@/hooks/useAuth'
 import { post, put } from '@/lib/api'
 import type { CycleCountSummary } from '@/lib/types'
 import { cn, money, pct, relativeTime } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 export default function Counts() {
+  const t = useT()
   const counts = useCounts()
   const { can } = useAuth()
   const [selected, setSelected] = useState<number | null>(null)
@@ -17,15 +19,15 @@ export default function Counts() {
   return (
     <div>
       <PageHeader
-        title="Cycle counts"
-        description="Count a slice of stock, compare with the system, post variances as audited adjustments."
-        actions={can('staff') && <Button onClick={() => setCreating(true)}><Plus className="size-4" /> New count</Button>}
+        title={t('Cycle counts')}
+        description={t('Count a slice of stock, compare with the system, post variances as audited adjustments.')}
+        actions={can('staff') && <Button onClick={() => setCreating(true)}><Plus className="size-4" /> {t('New count')}</Button>}
       />
       <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
         <Card className="h-fit">
-          <CardHeader title="Count sheets" />
+          <CardHeader title={t('Count sheets')} />
           {counts.isLoading ? <Skeleton className="m-4 h-32" /> : !counts.data?.length ? (
-            <EmptyState icon={<ClipboardList className="size-5" />} title="No counts yet" description="Start one, or ask the Auditor agent." />
+            <EmptyState icon={<ClipboardList className="size-5" />} title={t('No counts yet')} description={t('Start one, or ask the Auditor agent.')} />
           ) : (
             <ul className="space-y-1 px-2 pb-2">
               {counts.data.map((c) => (
@@ -42,7 +44,7 @@ export default function Counts() {
             </ul>
           )}
         </Card>
-        {id ? <CountSheet id={id} /> : <Card><EmptyState title="Select or create a count" /></Card>}
+        {id ? <CountSheet id={id} /> : <Card><EmptyState title={t('Select or create a count')} /></Card>}
       </div>
       <NewCountDialog open={creating} onOpenChange={setCreating} onCreated={(c) => setSelected(c.id)} />
     </div>
@@ -50,6 +52,7 @@ export default function Counts() {
 }
 
 function CountSheet({ id }: { id: number }) {
+  const t = useT()
   const { data: count } = useCount(id)
   const { can } = useAuth()
   const [values, setValues] = useState<Record<number, string>>({})
@@ -61,7 +64,7 @@ function CountSheet({ id }: { id: number }) {
 
   const save = useAction(
     () => put<CycleCountSummary>(`/api/counts/${id}`, { counts: Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v === '' ? null : Number(v)])) }),
-    { success: 'Counts saved', invalidate: [keys.counts, keys.count(id)] },
+    { success: t('Counts saved'), invalidate: [keys.counts, keys.count(id)] },
   )
   const postCount = useAction(() => post<CycleCountSummary>(`/api/counts/${id}/post`), {
     success: (c) => `${c.number} posted — net variance ${c.net_variance_units} units`,
@@ -79,11 +82,11 @@ function CountSheet({ id }: { id: number }) {
         action={
           open && (
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-xs text-muted"><EyeOff className="size-3.5" /> Blind count <Switch checked={blind} onCheckedChange={setBlind} label="Blind count" /></label>
-              <Button size="sm" variant="secondary" onClick={() => save.mutate(undefined)} loading={save.isPending}><Save className="size-3.5" /> Save</Button>
+              <label className="flex items-center gap-2 text-xs text-muted"><EyeOff className="size-3.5" /> {t('Blind count')} <Switch checked={blind} onCheckedChange={setBlind} label={t('Blind count')} /></label>
+              <Button size="sm" variant="secondary" onClick={() => save.mutate(undefined)} loading={save.isPending}><Save className="size-3.5" /> {t('Save')}</Button>
               {can('manager') && (
                 <Button size="sm" onClick={async () => { await save.mutateAsync(undefined); postCount.mutate(undefined) }} loading={postCount.isPending}>
-                  <ClipboardCheck className="size-3.5" /> Post variances
+                  <ClipboardCheck className="size-3.5" /> {t('Post variances')}
                 </Button>
               )}
             </div>
@@ -91,18 +94,18 @@ function CountSheet({ id }: { id: number }) {
         }
       />
       <div className="flex gap-6 px-5 pb-3 text-sm">
-        <span>Progress <b>{count.progress.counted}/{count.progress.total}</b></span>
-        <span>Net variance <b className={cn(count.net_variance_units < 0 && 'text-critical')}>{count.net_variance_units}</b> units</span>
-        <span>Value <b className={cn(count.net_variance_value < 0 && 'text-critical')}>{money(count.net_variance_value)}</b></span>
+        <span>{t('Progress')} <b>{count.progress.counted}/{count.progress.total}</b></span>
+        <span>{t('Net variance')} <b className={cn(count.net_variance_units < 0 && 'text-critical')}>{count.net_variance_units}</b> units</span>
+        <span>{t('Value')} <b className={cn(count.net_variance_value < 0 && 'text-critical')}>{money(count.net_variance_value)}</b></span>
       </div>
       <Table>
         <thead>
           <tr>
-            <Th>SKU</Th>
-            <Th>Product</Th>
-            <Th className="text-right">Expected</Th>
-            <Th className="w-32">Counted</Th>
-            <Th className="text-right">Variance</Th>
+            <Th>{t('SKU')}</Th>
+            <Th>{t('Product')}</Th>
+            <Th className="text-right">{t('Expected')}</Th>
+            <Th className="w-32">{t('Counted')}</Th>
+            <Th className="text-right">{t('Variance')}</Th>
           </tr>
         </thead>
         <tbody>
@@ -134,6 +137,7 @@ function CountSheet({ id }: { id: number }) {
 }
 
 function NewCountDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated: (c: CycleCountSummary) => void }) {
+  const t = useT()
   const warehouses = useWarehouses()
   const [warehouse, setWarehouse] = useState<number | ''>('')
   const [scope, setScope] = useState('A')
@@ -143,20 +147,20 @@ function NewCountDialog({ open, onOpenChange, onCreated }: { open: boolean; onOp
     onSuccess: (c) => { onCreated(c); onOpenChange(false) },
   })
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="New cycle count" description="Snapshots expected quantities for the chosen slice of stock."
-      footer={<Button onClick={() => create.mutate(undefined)} loading={create.isPending}>Create count sheet</Button>}>
+    <Dialog open={open} onOpenChange={onOpenChange} title={t('New cycle count')} description={t('Snapshots expected quantities for the chosen slice of stock.')}
+      footer={<Button onClick={() => create.mutate(undefined)} loading={create.isPending}>{t('Create count sheet')}</Button>}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Warehouse">
+        <Field label={t('Warehouse')}>
           <Select value={warehouse} onChange={(e) => setWarehouse(Number(e.target.value))}>
             {warehouses.data?.map((w) => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
           </Select>
         </Field>
-        <Field label="Scope" hint="A-items first: highest value, count most often">
+        <Field label={t('Scope')} hint={t('A-items first: highest value, count most often')}>
           <Select value={scope} onChange={(e) => setScope(e.target.value)}>
-            <option value="A">Class A items</option>
-            <option value="B">Class B items</option>
-            <option value="C">Class C items</option>
-            <option value="all">Everything in the warehouse</option>
+            <option value="A">{t('Class A items')}</option>
+            <option value="B">{t('Class B items')}</option>
+            <option value="C">{t('Class C items')}</option>
+            <option value="all">{t('Everything in the warehouse')}</option>
           </Select>
         </Field>
       </div>

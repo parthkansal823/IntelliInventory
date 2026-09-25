@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { get } from '@/lib/api'
 
-export interface PublicConfig { app_name: string; version: string; demo_mode: boolean; demo_accounts: { email: string; name: string; role: string; note: string }[]; currency: string }
+export interface PublicConfig { app_name: string; version: string; demo_mode: boolean; demo_accounts: { email: string; name: string; role: string; note: string }[]; currency: string; shop_name?: string }
 
 /** Unauthenticated deployment info (demo vs actual). */
 export const usePublicConfig = () =>

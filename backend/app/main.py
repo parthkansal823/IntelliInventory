@@ -26,7 +26,7 @@ from app.mcp_server import mcp
 from app.models import Alert
 from app.plugins import load_plugins
 from app.seed import DEMO_ACCOUNTS, ensure_production_setup, seed_demo
-from app.services.billing import BillingError
+from app.services.billing import BillingError, business_profile
 from app.services.inventory import InventoryError
 from app.services.scheduler import scheduler_loop
 
@@ -107,6 +107,7 @@ def create_app(*, start_scheduler: bool = True) -> FastAPI:
             "demo_mode": settings.demo_mode,
             "demo_accounts": DEMO_ACCOUNTS if settings.demo_mode and settings.should_seed_demo else [],
             "currency": "INR",
+            "shop_name": business_profile()["name"],
         }
 
     @app.get("/api/system/info", tags=["system"])

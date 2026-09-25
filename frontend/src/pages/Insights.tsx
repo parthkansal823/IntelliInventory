@@ -10,24 +10,26 @@ import { useAuth } from '@/hooks/useAuth'
 import { post } from '@/lib/api'
 import type { Simulation } from '@/lib/types'
 import { cn, money, moneyCompact, number, pct, titleCase } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 export default function Insights() {
+  const t = useT()
   const [params, setParams] = useSearchParams()
   const gstOn = useGstSettings().data?.gst_enabled ?? true
   return (
     <div>
-      <PageHeader title="Insights" description="Forecasts, replenishment, festivals, GST and risk — computed live from your ledger." />
+      <PageHeader title={t('Insights')} description={t('Forecasts, replenishment, festivals, GST and risk — computed live from your ledger.')} />
       <Tabs value={params.get('tab') ?? 'reorder'} onValueChange={(tab) => setParams({ tab }, { replace: true })}>
         <TabsList>
-          <TabsTrigger value="reorder">Reorder plan</TabsTrigger>
-          <TabsTrigger value="festival">🪔 Festival planner</TabsTrigger>
-          {gstOn && <TabsTrigger value="gst">GST</TabsTrigger>}
-          <TabsTrigger value="forecast">Forecast & what-if</TabsTrigger>
-          <TabsTrigger value="markdowns">Smart markdowns</TabsTrigger>
-          <TabsTrigger value="abc">ABC analysis</TabsTrigger>
-          <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
-          <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
-          <TabsTrigger value="margins">Margins</TabsTrigger>
+          <TabsTrigger value="reorder">{t('Reorder plan')}</TabsTrigger>
+          <TabsTrigger value="festival">{t('🪔 Festival planner')}</TabsTrigger>
+          {gstOn && <TabsTrigger value="gst">{t('GST')}</TabsTrigger>}
+          <TabsTrigger value="forecast">{t('Forecast & what-if')}</TabsTrigger>
+          <TabsTrigger value="markdowns">{t('Smart markdowns')}</TabsTrigger>
+          <TabsTrigger value="abc">{t('ABC analysis')}</TabsTrigger>
+          <TabsTrigger value="anomalies">{t('Anomalies')}</TabsTrigger>
+          <TabsTrigger value="suppliers">{t('Suppliers')}</TabsTrigger>
+          <TabsTrigger value="margins">{t('Margins')}</TabsTrigger>
         </TabsList>
         <TabsContent value="reorder"><ReorderPlan /></TabsContent>
         <TabsContent value="festival"><FestivalPlanner /></TabsContent>
@@ -44,6 +46,7 @@ export default function Insights() {
 }
 
 function ReorderPlan() {
+  const t = useT()
   const recs = useReorder()
   const { can } = useAuth()
   const navigate = useNavigate()
@@ -60,27 +63,27 @@ function ReorderPlan() {
   return (
     <Card>
       <CardHeader
-        title="Replenishment plan"
-        description="Items at or below their reorder point · quantities = max(EOQ, gap to ROP + lead-time demand), rounded to MOQ"
+        title={t('Replenishment plan')}
+        description={t('Items at or below their reorder point · quantities = max(EOQ, gap to ROP + lead-time demand), rounded to MOQ')}
         action={can('staff') && (
           <Button onClick={() => create.mutate(undefined)} disabled={!picked.size} loading={create.isPending}>
             <ShoppingCart className="size-4" /> Draft POs · {moneyCompact(total)}
           </Button>
         )}
       />
-      {recs.isLoading ? <Skeleton className="m-5 h-48" /> : !recs.data?.length ? <EmptyState title="Nothing to reorder 🎉" /> : (
+      {recs.isLoading ? <Skeleton className="m-5 h-48" /> : !recs.data?.length ? <EmptyState title={t('Nothing to reorder 🎉')} /> : (
         <Table>
           <thead>
             <tr>
               <Th className="w-8" />
-              <Th>Product</Th>
-              <Th>Supplier</Th>
-              <Th>Status</Th>
-              <Th className="text-right">On hand</Th>
-              <Th className="text-right">ROP</Th>
-              <Th className="text-right">Order qty</Th>
-              <Th className="text-right">Cost</Th>
-              <Th>Why</Th>
+              <Th>{t('Product')}</Th>
+              <Th>{t('Supplier')}</Th>
+              <Th>{t('Status')}</Th>
+              <Th className="text-right">{t('On hand')}</Th>
+              <Th className="text-right">{t('ROP')}</Th>
+              <Th className="text-right">{t('Order qty')}</Th>
+              <Th className="text-right">{t('Cost')}</Th>
+              <Th>{t('Why')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -105,6 +108,7 @@ function ReorderPlan() {
 }
 
 function ForecastLab() {
+  const t = useT()
   const products = useProducts()
   const sorted = useMemo(() => [...(products.data ?? [])].filter((p) => p.is_active).sort((a, b) => (b.avg_daily_demand ?? 0) * b.unit_price - (a.avg_daily_demand ?? 0) * a.unit_price), [products.data])
   const [productId, setProductId] = useState<number | null>(null)
@@ -142,7 +146,7 @@ function ForecastLab() {
     <div className="grid gap-4 xl:grid-cols-5">
       <Card className="xl:col-span-3">
         <CardHeader
-          title="Demand forecast"
+          title={t('Demand forecast')}
           description={forecast.data ? `Holt-Winters (weekly season) · backtest MAPE ${forecast.data.mape ?? '—'}% · next 30 days ≈ ${forecast.data.total_forecast} units` : 'Holt-Winters with weekly seasonality'}
           action={
             <Select value={id ?? ''} onChange={(e) => setProductId(Number(e.target.value))} className="w-64">
@@ -154,7 +158,7 @@ function ForecastLab() {
       </Card>
 
       <Card className="xl:col-span-2">
-        <CardHeader title="What-if simulator" description="300 Monte-Carlo runs of the (s, Q) policy over 60 days" icon={<FlaskConical className="size-4" />} />
+        <CardHeader title={t('What-if simulator')} description={t('300 Monte-Carlo runs of the (s, Q) policy over 60 days')} icon={<FlaskConical className="size-4" />} />
         <form className="grid grid-cols-2 gap-3 px-5 pb-5" onSubmit={(e) => { e.preventDefault(); sim.mutate(undefined) }}>
           <Field label={`Demand ${form.demand >= 100 ? '+' : ''}${form.demand - 100}%`} className="col-span-2">
             <input type="range" min={50} max={200} step={5} value={form.demand} onChange={(e) => setForm({ ...form, demand: Number(e.target.value) })} className="w-full accent-[var(--brand)]" />
@@ -162,14 +166,14 @@ function ForecastLab() {
           <Field label={`Service level ${form.service}%`} className="col-span-2">
             <input type="range" min={80} max={99.5} step={0.5} value={form.service} onChange={(e) => setForm({ ...form, service: Number(e.target.value) })} className="w-full accent-[var(--brand)]" />
           </Field>
-          <Field label="Lead time (days)" hint={`current ${product?.lead_time_days ?? '—'}d`}>
-            <Input type="number" min={1} value={form.lead} onChange={(e) => setForm({ ...form, lead: e.target.value })} placeholder="current" />
+          <Field label={t('Lead time (days)')} hint={`current ${product?.lead_time_days ?? '—'}d`}>
+            <Input type="number" min={1} value={form.lead} onChange={(e) => setForm({ ...form, lead: e.target.value })} placeholder={t('current')} />
           </Field>
-          <Field label="Order qty" hint={`EOQ ${product?.eoq ?? '—'}`}>
-            <Input type="number" min={1} value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} placeholder="EOQ" />
+          <Field label={t('Order qty')} hint={`EOQ ${product?.eoq ?? '—'}`}>
+            <Input type="number" min={1} value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} placeholder={t('EOQ')} />
           </Field>
           <Button type="submit" className="col-span-2" loading={sim.isPending} disabled={!id}>
-            <Play className="size-4" /> Run simulation
+            <Play className="size-4" /> {t('Run simulation')}
           </Button>
         </form>
       </Card>
@@ -204,27 +208,28 @@ function ForecastLab() {
 }
 
 function Markdowns() {
+  const t = useT()
   const md = useMarkdowns()
   const total = md.data?.reduce((s, m) => s + m.capital_tied, 0) ?? 0
   return (
     <Card>
       <CardHeader
-        title="Smart markdown advisor"
+        title={t('Smart markdown advisor')}
         description={`Overstocked & slow-moving items · ${money(total)} of capital tied up · discounts clear excess in ~60 days and never go below cost + 5%`}
         icon={<Tag className="size-4" />}
       />
-      {md.isLoading ? <Skeleton className="m-5 h-40" /> : !md.data?.length ? <EmptyState title="No excess stock worth discounting" /> : (
+      {md.isLoading ? <Skeleton className="m-5 h-40" /> : !md.data?.length ? <EmptyState title={t('No excess stock worth discounting')} /> : (
         <Table>
           <thead>
             <tr>
-              <Th>Product</Th>
-              <Th className="text-right">Cover</Th>
-              <Th className="text-right">Excess units</Th>
-              <Th className="text-right">Capital tied</Th>
-              <Th className="text-right">Discount</Th>
-              <Th className="text-right">Price</Th>
-              <Th className="text-right">Margin after</Th>
-              <Th>Recommendation</Th>
+              <Th>{t('Product')}</Th>
+              <Th className="text-right">{t('Cover')}</Th>
+              <Th className="text-right">{t('Excess units')}</Th>
+              <Th className="text-right">{t('Capital tied')}</Th>
+              <Th className="text-right">{t('Discount')}</Th>
+              <Th className="text-right">{t('Price')}</Th>
+              <Th className="text-right">{t('Margin after')}</Th>
+              <Th>{t('Recommendation')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -248,6 +253,7 @@ function Markdowns() {
 }
 
 function Abc() {
+  const t = useT()
   const abc = useAbc()
   if (!abc.data) return <Skeleton className="h-64" />
   return (
@@ -258,7 +264,7 @@ function Abc() {
             <Badge tone={c.class === 'A' ? 'brand' : 'neutral'} className="text-sm">Class {c.class}</Badge>
             <span className="text-xs text-muted">{c.count} SKUs</span>
           </div>
-          <div className="mt-3 text-2xl font-semibold tabular-nums">{moneyCompact(c.consumption_value)}<span className="text-sm font-normal text-muted"> / month</span></div>
+          <div className="mt-3 text-2xl font-semibold tabular-nums">{moneyCompact(c.consumption_value)}<span className="text-sm font-normal text-muted"> {t('/ month')}</span></div>
           <div className="text-xs text-muted">{moneyCompact(c.stock_value)} in stock</div>
           <p className="mt-2 text-xs text-subtle">
             {c.class === 'A' ? 'Top 80% of consumption value — count often, highest service level.' : c.class === 'B' ? 'Next 15% — standard policies.' : 'Last 5% — simplify, order in bulk.'}
@@ -266,7 +272,7 @@ function Abc() {
         </Card>
       ))}
       <Card className="lg:col-span-3">
-        <CardHeader title="Monthly consumption value by product" description="Pareto ordering" />
+        <CardHeader title={t('Monthly consumption value by product')} description={t('Pareto ordering')} />
         <div className="px-5 pb-5">
           <BarList items={abc.data.products.slice(0, 15).map((p) => ({ key: p.sku, label: <span>{p.name} <Badge tone={p.class === 'A' ? 'brand' : 'neutral'}>{p.class}</Badge></span>, value: p.monthly_consumption_value }))} format={moneyCompact} />
         </div>
@@ -276,10 +282,11 @@ function Abc() {
 }
 
 function Anomalies() {
+  const t = useT()
   const an = useAnomalies()
   const navigate = useNavigate()
   if (an.isLoading) return <Skeleton className="h-48" />
-  if (!an.data?.length) return <Card><EmptyState title="No anomalies detected" description="Demand and write-offs look normal this week." /></Card>
+  if (!an.data?.length) return <Card><EmptyState title={t('No anomalies detected')} description={t('Demand and write-offs look normal this week.')} /></Card>
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {an.data.map((a, i) => (
@@ -294,7 +301,7 @@ function Anomalies() {
               </div>
               <p className="mt-1 text-sm text-muted">{a.message}</p>
               <Button size="sm" variant="ghost" className="mt-2 -ml-2" onClick={() => navigate(`/copilot?q=${encodeURIComponent(`Investigate the ${a.kind.replace('_', ' ')} on ${a.sku} and recommend an action`)}`)}>
-                Investigate with Auditor →
+                {t('Investigate with Auditor →')}
               </Button>
             </div>
           </div>
@@ -305,21 +312,22 @@ function Anomalies() {
 }
 
 function Suppliers() {
+  const t = useT()
   const s = useSupplierScores()
   if (!s.data) return <Skeleton className="h-48" />
   return (
     <Card>
-      <CardHeader title="Supplier scorecards" description="Score = 60% on-time delivery + 25% lead-time accuracy + 15% catalog rating (last 120 days)" />
+      <CardHeader title={t('Supplier scorecards')} description={t('Score = 60% on-time delivery + 25% lead-time accuracy + 15% catalog rating (last 120 days)')} />
       <Table>
         <thead>
           <tr>
-            <Th>Supplier</Th>
-            <Th>Grade</Th>
-            <Th>On-time</Th>
-            <Th className="text-right">Lead time</Th>
-            <Th className="text-right">Orders</Th>
-            <Th className="text-right">Spend</Th>
-            <Th className="text-right">Products</Th>
+            <Th>{t('Supplier')}</Th>
+            <Th>{t('Grade')}</Th>
+            <Th>{t('On-time')}</Th>
+            <Th className="text-right">{t('Lead time')}</Th>
+            <Th className="text-right">{t('Orders')}</Th>
+            <Th className="text-right">{t('Spend')}</Th>
+            <Th className="text-right">{t('Products')}</Th>
           </tr>
         </thead>
         <tbody>
@@ -346,18 +354,19 @@ function Suppliers() {
 }
 
 function Margins() {
+  const t = useT()
   const m = useMargins()
   if (!m.data) return <Skeleton className="h-48" />
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
-        <CardHeader title="Gross margin % by category" description="Last 30 days of sales" />
+        <CardHeader title={t('Gross margin % by category')} description={t('Last 30 days of sales')} />
         <div className="px-5 pb-5"><BarList items={[...m.data].sort((a, b) => b.margin_pct - a.margin_pct).map((c) => ({ key: c.category, label: c.category, value: c.margin_pct }))} format={(v) => pct(v)} max={100} /></div>
       </Card>
       <Card>
-        <CardHeader title="Revenue & profit" />
+        <CardHeader title={t('Revenue & profit')} />
         <Table>
-          <thead><tr><Th>Category</Th><Th className="text-right">Revenue</Th><Th className="text-right">Gross profit</Th><Th className="text-right">Units</Th></tr></thead>
+          <thead><tr><Th>{t('Category')}</Th><Th className="text-right">{t('Revenue')}</Th><Th className="text-right">{t('Gross profit')}</Th><Th className="text-right">{t('Units')}</Th></tr></thead>
           <tbody>
             {m.data.map((c) => (
               <tr key={c.category}>

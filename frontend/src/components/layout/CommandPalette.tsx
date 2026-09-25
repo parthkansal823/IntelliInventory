@@ -7,6 +7,7 @@ import { useProducts } from '@/hooks/queries'
 import { useTheme } from '@/hooks/useTheme'
 import { NAV } from './nav'
 import { StatusBadge } from '../domain'
+import { useT } from '@/lib/i18n'
 
 const QUICK_ASKS = [
   'aaj ki sale kitni hui?',
@@ -21,6 +22,7 @@ const QUICK_ASKS = [
 ]
 
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const t = useT()
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const products = useProducts()
@@ -40,17 +42,17 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       <D.Portal>
         <D.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" />
         <D.Content className="fixed top-[12vh] left-1/2 z-50 w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl outline-none animate-fade-in">
-          <D.Title className="sr-only">Command palette</D.Title>
-          <D.Description className="sr-only">Search products and pages or ask the AI copilot</D.Description>
-          <Command label="Command palette" loop>
+          <D.Title className="sr-only">{t('Command palette')}</D.Title>
+          <D.Description className="sr-only">{t('Search products and pages or ask the AI copilot')}</D.Description>
+          <Command label={t('Command palette')} loop>
             <Command.Input
               value={query}
               onValueChange={setQuery}
-              placeholder="Type a product, a page, or a question for Copilot…"
+              placeholder={t('Type a product, a page, or a question for Copilot…')}
               className="h-12 w-full border-b border-border bg-transparent px-4 text-sm outline-none placeholder:text-subtle"
             />
             <Command.List className="max-h-[60vh] overflow-y-auto p-2">
-              <Command.Empty className="px-3 py-6 text-center text-sm text-muted">No matches — press Enter to ask Copilot.</Command.Empty>
+              <Command.Empty className="px-3 py-6 text-center text-sm text-muted">{t('No matches — press Enter to ask Copilot.')}</Command.Empty>
               {query.trim().length > 2 && (
                 <Command.Group heading="Ask AI" className={group}>
                   <Command.Item value={`ask ${query}`} onSelect={() => ask(query)} className={item}>
@@ -63,7 +65,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                 {NAV.map((n) => (
                   <Command.Item key={n.to} value={`page ${n.label}`} onSelect={() => go(n.to)} className={item}>
                     <n.icon className="size-4 text-muted" />
-                    {n.label}
+                    {t(n.label)}
                     <span className="ml-auto font-mono text-[10px] text-subtle">g {n.key}</span>
                   </Command.Item>
                 ))}

@@ -9,13 +9,15 @@ import { del, get, patch, post } from '@/lib/api'
 import type { HookInfo, LiveEvent, Webhook } from '@/lib/types'
 import { relativeTime, timeOnly } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
+import { tr, useT } from '@/lib/i18n'
 
 const LIFECYCLE = ['pre_llm_call', 'pre_tool_call', 'post_tool_call', 'post_llm_call', 'agent:start', 'agent:step', 'agent:end']
 
 export default function Automation() {
+  const t = useT()
   return (
     <div className="space-y-6">
-      <PageHeader title="Automation" description="Agent lifecycle hooks, event hooks, autopilot, scheduled jobs, webhooks and the live audit trail." />
+      <PageHeader title={t('Automation')} description={t('Agent lifecycle hooks, event hooks, autopilot, scheduled jobs, webhooks and the live audit trail.')} />
       <div className="grid gap-4 lg:grid-cols-3">
         <AutopilotCard />
         <JobsCard />
@@ -32,7 +34,7 @@ export default function Automation() {
 
 function useToggle() {
   return useAction(({ name, enabled }: { name: string; enabled: boolean }) => patch(`/api/hooks/${encodeURIComponent(name)}`, { enabled }), {
-    success: 'Hook updated',
+    success: tr('Hook updated'),
     invalidate: [keys.hooks, keys.agents],
   })
 }
@@ -57,11 +59,12 @@ function HookRow({ hook }: { hook: HookInfo }) {
 }
 
 function AgentHooksCard() {
+  const t = useT()
   const hooks = useHooks()
   const grouped = useMemo(() => LIFECYCLE.map((ev) => ({ ev, list: hooks.data?.agent.filter((h) => h.event === ev) ?? [] })).filter((g) => g.list.length), [hooks.data])
   return (
     <Card>
-      <CardHeader title="Agent lifecycle hooks" description="Same contract as Hermes Agent plugins: block · modify · require approval · inject context" icon={<ShieldCheck className="size-4" />} />
+      <CardHeader title={t('Agent lifecycle hooks')} description={t('Same contract as Hermes Agent plugins: block · modify · require approval · inject context')} icon={<ShieldCheck className="size-4" />} />
       <div className="px-5 pb-4">
         {!hooks.data ? <Skeleton className="h-48" /> : grouped.map((g) => (
           <div key={g.ev} className="mb-2">
@@ -75,22 +78,23 @@ function AgentHooksCard() {
 }
 
 function EventHooksCard() {
+  const t = useT()
   const hooks = useHooks()
   return (
     <Card>
-      <CardHeader title="Event hooks" description="React to domain events (glob patterns) — sync or async, failures isolated" icon={<Zap className="size-4" />} />
+      <CardHeader title={t('Event hooks')} description={t('React to domain events (glob patterns) — sync or async, failures isolated')} icon={<Zap className="size-4" />} />
       <div className="px-5 pb-4">
         {!hooks.data ? <Skeleton className="h-48" /> : <ul className="divide-y divide-border">{hooks.data.event.map((h) => <HookRow key={h.name} hook={h} />)}</ul>}
         {!!hooks.data?.plugins.length && (
           <div className="mt-4 rounded-lg border border-dashed border-border p-3">
-            <div className="text-xs font-medium text-muted">Loaded plugins</div>
+            <div className="text-xs font-medium text-muted">{t('Loaded plugins')}</div>
             {hooks.data.plugins.map((p) => (
               <div key={p.name} className="mt-1.5 text-sm">
                 <code className="font-medium">{p.name}</code> <span className="text-xs text-muted">— {p.description}</span>
                 <div className="mt-1 flex flex-wrap gap-1">{p.registered.map((r) => <Badge key={r}>{r}</Badge>)}</div>
               </div>
             ))}
-            <p className="mt-2 text-xs text-subtle">Drop a <code>register(ctx)</code> module into <code>backend/app/plugins/</code> or <code>PLUGINS_DIR</code> to add hooks and tools.</p>
+            <p className="mt-2 text-xs text-subtle">{t('Drop a')} <code>{t('register(ctx)')}</code> {t('module into')} <code>{t('backend/app/plugins/')}</code> or <code>{t('PLUGINS_DIR')}</code> {t('to add hooks and tools.')}</p>
           </div>
         )}
       </div>
@@ -99,6 +103,7 @@ function EventHooksCard() {
 }
 
 function AutopilotCard() {
+  const t = useT()
   const settings = useAutomationSettings()
   const { can } = useAuth()
   const update = useAction((enabled: boolean) => patch('/api/automation/settings', { autopilot_enabled: enabled }), {
@@ -110,17 +115,17 @@ function AutopilotCard() {
     <Card className="relative overflow-hidden">
       <div className="pointer-events-none absolute -top-12 -right-12 size-40 rounded-full bg-brand/10 blur-2xl" />
       <CardHeader
-        title="Procurement autopilot"
-        description="Event-driven agent: when stock drops below the reorder point, the Procurement agent drafts a PO for approval."
+        title={t('Procurement autopilot')}
+        description={t('Event-driven agent: when stock drops below the reorder point, the Procurement agent drafts a PO for approval.')}
         icon={<Bot className="size-4" />}
-        action={<Switch checked={on} disabled={!can('manager')} onCheckedChange={(v) => update.mutate(v)} label="Autopilot" />}
+        action={<Switch checked={on} disabled={!can('manager')} onCheckedChange={(v) => update.mutate(v)} label={t('Autopilot')} />}
       />
       <div className="space-y-2 px-5 pb-5 text-sm text-muted">
         <div className="flex items-center gap-2"><Badge tone={on ? 'good' : 'neutral'}>{on ? 'Active' : 'Paused'}</Badge> cooldown {settings.data?.autopilot_cooldown_hours ?? 12}h per SKU</div>
         <ol className="list-decimal space-y-1 pl-5 text-xs">
-          <li><code>stock.changed</code> → alert engine → <code>stock.low</code></li>
-          <li>skips SKUs that already have an open PO</li>
-          <li>agent drafts one PO per supplier → approval queue</li>
+          <li><code>{t('stock.changed')}</code> {t('→ alert engine →')} <code>{t('stock.low')}</code></li>
+          <li>{t('skips SKUs that already have an open PO')}</li>
+          <li>{t('agent drafts one PO per supplier → approval queue')}</li>
         </ol>
       </div>
     </Card>
@@ -128,12 +133,13 @@ function AutopilotCard() {
 }
 
 function JobsCard() {
+  const t = useT()
   const jobs = useJobs()
   const { can } = useAuth()
   const run = useAction((name: string) => post<{ result: string }>(`/api/jobs/${name}/run`), { success: (r) => `Done: ${r.result}`, invalidate: [keys.jobs, keys.reports, keys.alerts] })
   return (
     <Card className="lg:col-span-2">
-      <CardHeader title="Scheduled jobs" description="Built-in asyncio scheduler — no extra infrastructure" icon={<CalendarClock className="size-4" />} />
+      <CardHeader title={t('Scheduled jobs')} description={t('Built-in asyncio scheduler — no extra infrastructure')} icon={<CalendarClock className="size-4" />} />
       <ul className="divide-y divide-border px-5 pb-3">
         {!jobs.data && <Skeleton className="h-32" />}
         {jobs.data?.map((j) => (
@@ -143,7 +149,7 @@ function JobsCard() {
               <p className="text-xs text-muted">{j.description}</p>
               <p className="text-xs text-subtle">Last run {relativeTime(j.last_run)}{j.last_result ? ` · ${j.last_result}` : ''}</p>
             </div>
-            {can('manager') && <Button size="sm" variant="secondary" onClick={() => run.mutate(j.name)} loading={run.isPending && run.variables === j.name}><Play className="size-3.5" /> Run now</Button>}
+            {can('manager') && <Button size="sm" variant="secondary" onClick={() => run.mutate(j.name)} loading={run.isPending && run.variables === j.name}><Play className="size-3.5" /> {t('Run now')}</Button>}
           </li>
         ))}
       </ul>
@@ -152,6 +158,7 @@ function JobsCard() {
 }
 
 function WebhooksCard() {
+  const t = useT()
   const hooks = useWebhooks()
   const { can } = useAuth()
   const [adding, setAdding] = useState(false)
@@ -160,7 +167,7 @@ function WebhooksCard() {
   const [created, setCreated] = useState<Webhook | null>(null)
   const [openId, setOpenId] = useState<number | null>(null)
   const create = useAction(() => post<Webhook>('/api/webhooks', { url, events: events.split(',').map((e) => e.trim()).filter(Boolean) }), {
-    success: 'Webhook created', invalidate: [keys.webhooks], onSuccess: (w) => { setCreated(w); setAdding(false); setUrl('') },
+    success: t('Webhook created'), invalidate: [keys.webhooks], onSuccess: (w) => { setCreated(w); setAdding(false); setUrl('') },
   })
   const remove = useAction((id: number) => del(`/api/webhooks/${id}`), { success: 'Webhook deleted', invalidate: [keys.webhooks] })
   const test = useAction((id: number) => post<{ success: boolean; status_code: number | null; error: string | null }>(`/api/webhooks/${id}/test`), {
@@ -171,14 +178,14 @@ function WebhooksCard() {
   return (
     <Card>
       <CardHeader
-        title="Webhooks"
-        description="HMAC-SHA256 signed (X-IntelliInventory-Signature), 3 retries with backoff. Slack & Discord URLs get chat-formatted messages."
+        title={t('Webhooks')}
+        description={t('HMAC-SHA256 signed (X-IntelliInventory-Signature), 3 retries with backoff. Slack & Discord URLs get chat-formatted messages.')}
         icon={<WebhookIcon className="size-4" />}
-        action={can('admin') && <Button size="sm" onClick={() => setAdding(true)}><Plus className="size-3.5" /> Add webhook</Button>}
+        action={can('admin') && <Button size="sm" onClick={() => setAdding(true)}><Plus className="size-3.5" /> {t('Add webhook')}</Button>}
       />
       <div className="px-5 pb-5">
         {!hooks.data?.length ? (
-          <EmptyState title="No webhooks yet" description="Send stock alerts, PO updates and AI briefings to Slack, Discord, Zapier, n8n or your own service." />
+          <EmptyState title={t('No webhooks yet')} description={t('Send stock alerts, PO updates and AI briefings to Slack, Discord, Zapier, n8n or your own service.')} />
         ) : (
           <ul className="divide-y divide-border">
             {hooks.data.map((w) => (
@@ -191,9 +198,9 @@ function WebhooksCard() {
                   <div className="flex items-center gap-2">
                     {w.last_status != null && <Badge tone={w.last_status < 300 ? 'good' : 'critical'}>HTTP {w.last_status}</Badge>}
                     {w.last_error && <Tooltip content={w.last_error}><Badge tone="critical">error</Badge></Tooltip>}
-                    <Button size="sm" variant="ghost" onClick={() => setOpenId(openId === w.id ? null : w.id)}>Deliveries</Button>
-                    <Button size="sm" variant="secondary" onClick={() => test.mutate(w.id)} loading={test.isPending && test.variables === w.id}><Send className="size-3.5" /> Test</Button>
-                    {can('admin') && <Button size="icon" variant="ghost" onClick={() => remove.mutate(w.id)} aria-label="Delete webhook"><Trash2 className="size-4" /></Button>}
+                    <Button size="sm" variant="ghost" onClick={() => setOpenId(openId === w.id ? null : w.id)}>{t('Deliveries')}</Button>
+                    <Button size="sm" variant="secondary" onClick={() => test.mutate(w.id)} loading={test.isPending && test.variables === w.id}><Send className="size-3.5" /> {t('Test')}</Button>
+                    {can('admin') && <Button size="icon" variant="ghost" onClick={() => remove.mutate(w.id)} aria-label={t('Delete webhook')}><Trash2 className="size-4" /></Button>}
                   </div>
                 </div>
                 {openId === w.id && (
@@ -203,7 +210,7 @@ function WebhooksCard() {
                         <span className="font-mono">{d.event_type}</span>
                         <span className={d.success ? 'text-good' : 'text-critical'}>{d.status_code ?? d.error} · {d.attempts}× · {d.duration_ms}ms · {relativeTime(d.created_at)}</span>
                       </li>
-                    )) : <li className="text-muted">No deliveries yet.</li>}
+                    )) : <li className="text-muted">{t('No deliveries yet.')}</li>}
                   </ul>
                 )}
               </li>
@@ -211,13 +218,13 @@ function WebhooksCard() {
           </ul>
         )}
       </div>
-      <Dialog open={adding} onOpenChange={setAdding} title="Add webhook" footer={<Button onClick={() => create.mutate(undefined)} loading={create.isPending} disabled={!url}>Create</Button>}>
+      <Dialog open={adding} onOpenChange={setAdding} title={t('Add webhook')} footer={<Button onClick={() => create.mutate(undefined)} loading={create.isPending} disabled={!url}>{t('Create')}</Button>}>
         <div className="space-y-4">
-          <Field label="Endpoint URL" hint="Slack / Discord incoming-webhook URLs are auto-formatted"><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://hooks.slack.com/services/…" /></Field>
-          <Field label="Events (comma-separated globs)" hint="e.g. * for everything"><Input value={events} onChange={(e) => setEvents(e.target.value)} /></Field>
+          <Field label={t('Endpoint URL')} hint={t('Slack / Discord incoming-webhook URLs are auto-formatted')}><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://hooks.slack.com/services/…" /></Field>
+          <Field label={t('Events (comma-separated globs)')} hint={t('e.g. * for everything')}><Input value={events} onChange={(e) => setEvents(e.target.value)} /></Field>
         </div>
       </Dialog>
-      <Dialog open={!!created} onOpenChange={(o) => !o && setCreated(null)} title="Signing secret" description="Shown once — use it to verify the X-IntelliInventory-Signature header.">
+      <Dialog open={!!created} onOpenChange={(o) => !o && setCreated(null)} title={t('Signing secret')} description={t('Shown once — use it to verify the X-IntelliInventory-Signature header.')}>
         {created?.secret && <CodeBlock code={created.secret} />}
         <CodeBlock code={`# Python verification\nimport hmac, hashlib\nexpected = "sha256=" + hmac.new(SECRET.encode(), request_body, hashlib.sha256).hexdigest()\nassert hmac.compare_digest(expected, request.headers["X-IntelliInventory-Signature"])`} />
       </Dialog>
@@ -226,6 +233,7 @@ function WebhooksCard() {
 }
 
 function EventLogCard() {
+  const t = useT()
   const { events: live, connected } = useLiveEvents()
   const history = useQuery({ queryKey: keys.events, queryFn: () => get<{ id: number; type: string; source: string; payload: Record<string, unknown>; ts: string }[]>('/api/events?limit=80') })
   const [filter, setFilter] = useState('')
@@ -243,13 +251,13 @@ function EventLogCard() {
   return (
     <Card>
       <CardHeader
-        title="Audit trail"
-        description="Every domain event, persisted by the audit_log hook and streamed live over SSE"
+        title={t('Audit trail')}
+        description={t('Every domain event, persisted by the audit_log hook and streamed live over SSE')}
         icon={<Radio className="size-4" />}
         action={
           <div className="flex items-center gap-2">
             <Badge tone={connected ? 'good' : 'neutral'}>{connected ? 'live' : 'offline'}</Badge>
-            <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter e.g. stock." className="h-8 w-44" />
+            <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('Filter e.g. stock.')} className="h-8 w-44" />
           </div>
         }
       />

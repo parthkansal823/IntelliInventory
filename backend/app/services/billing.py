@@ -295,7 +295,8 @@ def create_invoice(
             raise BillingError("Quantities must be positive")
         product = find_product(session, raw.get("product_id") or raw.get("sku") or "")
         rate = float(product.gst_rate or 0) if gst_on else 0.0
-        default_price = product.unit_price * (1 + rate / 100) if prices_include_gst else product.unit_price
+        # MRP-style (GST-inclusive) shelf prices are whole rupees; GST-exclusive B2B prices keep paise
+        default_price = round(product.unit_price * (1 + rate / 100)) if prices_include_gst else product.unit_price
         price = float(raw["unit_price"]) if raw.get("unit_price") is not None else round(default_price, 2)
         disc_pct = min(max(float(raw.get("discount_pct") or 0), 0.0), 100.0)
         gross = price * qty

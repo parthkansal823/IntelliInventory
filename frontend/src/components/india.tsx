@@ -2,12 +2,13 @@
 import { CalendarHeart, ChevronRight, Landmark, ShoppingCart, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { keys, useAction, useFestivalPlan, useFestivals, useGst } from '@/hooks/queries'
+import { keys, useAction, useBillingProfile, useFestivalPlan, useFestivals, useGst } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { post } from '@/lib/api'
 import { cn, IST, money, moneyCompact, number, shortDate, titleCase } from '@/lib/utils'
 import { BarList } from './charts'
 import { Badge, Button, Card, CardHeader, EmptyState, Segmented, Skeleton, Table, Td, Th } from './ui'
+import { useT } from '@/lib/i18n'
 
 const CATEGORY_LABEL: Record<string, string> = {
   grocery: 'Groceries & sweets', puja: 'Puja samagri', electronics: 'Electronics', home: 'Home & kitchen', beauty: 'Health & beauty',
@@ -15,6 +16,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 }
 
 export function FestivalPlanner() {
+  const t = useT()
   const festivals = useFestivals()
   const [slug, setSlug] = useState<string | null>(null)
   const plan = useFestivalPlan(slug)
@@ -27,9 +29,14 @@ export function FestivalPlanner() {
   })
   const f = plan.data?.festival
   const s = plan.data?.summary
+  const shopState = useBillingProfile().data?.state
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-muted">
+        {shopState && <b className="text-fg">{t('Festivals for {state}', { state: shopState })}. </b>}
+        {t("Festivals shown for your shop's state — change it in Settings → Shop details.")}
+      </p>
       <div className="flex gap-3 overflow-x-auto pb-1">
         {festivals.data?.slice(0, 10).map((fest) => (
           <button
@@ -41,7 +48,7 @@ export function FestivalPlanner() {
             )}
           >
             <div className="text-2xl">{fest.emoji}</div>
-            <div className="mt-1 text-sm font-semibold">{fest.name}</div>
+            <div className="mt-1 text-sm font-semibold">{fest.name}{fest.regional && <Badge tone="brand" className="ml-1.5 align-middle">{t('Regional')}</Badge>}</div>
             <div className="text-xs text-muted">{new Date(fest.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: IST })}</div>
             <div className="mt-1 text-xs font-medium text-brand">{fest.days_away === 0 ? 'Today' : `in ${fest.days_away} days`}</div>
           </button>
@@ -83,18 +90,18 @@ export function FestivalPlanner() {
             ))}
           </div>
           {!plan.data?.items.length ? (
-            <EmptyState title="No products in the affected categories" />
+            <EmptyState title={t('No products in the affected categories')} />
           ) : (
             <Table>
               <thead>
                 <tr>
-                  <Th>Product</Th>
-                  <Th>Supplier</Th>
-                  <Th className="text-right">Lift</Th>
-                  <Th className="text-right">Extra units</Th>
-                  <Th className="text-right">Stock + on order</Th>
-                  <Th className="text-right">Order qty</Th>
-                  <Th>Order by</Th>
+                  <Th>{t('Product')}</Th>
+                  <Th>{t('Supplier')}</Th>
+                  <Th className="text-right">{t('Lift')}</Th>
+                  <Th className="text-right">{t('Extra units')}</Th>
+                  <Th className="text-right">{t('Stock + on order')}</Th>
+                  <Th className="text-right">{t('Order qty')}</Th>
+                  <Th>{t('Order by')}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -131,22 +138,23 @@ export function FestivalPlanner() {
 }
 
 export function GstPanel() {
+  const t = useT()
   const [days, setDays] = useState<'30' | '90'>('30')
   const gst = useGst(Number(days))
   const g = gst.data
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted">GSTR-3B style estimate: output tax on sales vs input tax credit (ITC) on received purchases.</p>
-        <Segmented size="sm" value={days} onChange={setDays} options={[{ value: '30', label: 'Last 30 days' }, { value: '90', label: 'Last 90 days' }]} />
+        <p className="text-sm text-muted">{t('GSTR-3B style estimate: output tax on sales vs input tax credit (ITC) on received purchases.')}</p>
+        <Segmented size="sm" value={days} onChange={setDays} options={[{ value: '30', label: t('Last 30 days') }, { value: '90', label: t('Last 90 days') }]} />
       </div>
       {!g ? (
         <Skeleton className="h-64" />
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-3">
-            <Card className="p-4"><div className="text-xs text-muted">Output tax (on sales)</div><div className="mt-1 text-2xl font-semibold tabular-nums">{money(g.output_tax)}</div></Card>
-            <Card className="p-4"><div className="text-xs text-muted">Input tax credit</div><div className="mt-1 text-2xl font-semibold tabular-nums">{money(g.input_tax_credit)}</div></Card>
+            <Card className="p-4"><div className="text-xs text-muted">{t('Output tax (on sales)')}</div><div className="mt-1 text-2xl font-semibold tabular-nums">{money(g.output_tax)}</div></Card>
+            <Card className="p-4"><div className="text-xs text-muted">{t('Input tax credit')}</div><div className="mt-1 text-2xl font-semibold tabular-nums">{money(g.input_tax_credit)}</div></Card>
             <Card className="p-4">
               <div className="text-xs text-muted">{g.carry_forward_credit ? 'Credit carried forward' : 'Net GST payable'}</div>
               <div className="mt-1 text-2xl font-semibold tabular-nums">{money(g.carry_forward_credit || g.net_payable)}</div>
@@ -154,9 +162,9 @@ export function GstPanel() {
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
-              <CardHeader title="By GST slab" icon={<Landmark className="size-4" />} />
+              <CardHeader title={t('By GST slab')} icon={<Landmark className="size-4" />} />
               <Table>
-                <thead><tr><Th>Slab</Th><Th className="text-right">Sales (taxable)</Th><Th className="text-right">Output tax</Th><Th className="text-right">Purchases</Th><Th className="text-right">ITC</Th></tr></thead>
+                <thead><tr><Th>{t('Slab')}</Th><Th className="text-right">{t('Sales (taxable)')}</Th><Th className="text-right">{t('Output tax')}</Th><Th className="text-right">{t('Purchases')}</Th><Th className="text-right">{t('ITC')}</Th></tr></thead>
                 <tbody>
                   {g.slabs.map((s) => (
                     <tr key={s.rate}>
@@ -171,7 +179,7 @@ export function GstPanel() {
               </Table>
             </Card>
             <Card>
-              <CardHeader title="Output tax by slab" />
+              <CardHeader title={t('Output tax by slab')} />
               <div className="px-5 pb-5">
                 <BarList items={g.slabs.map((s) => ({ key: String(s.rate), label: `${s.rate}% slab`, value: s.output_tax }))} format={moneyCompact} />
               </div>
@@ -185,6 +193,7 @@ export function GstPanel() {
 }
 
 export function NextFestivalCard() {
+  const t = useT()
   const plan = useFestivalPlan(null)
   const f = plan.data?.festival
   if (!f) return null
@@ -195,12 +204,12 @@ export function NextFestivalCard() {
         <div className="text-3xl">{f.emoji}</div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">
-            {f.name} in {f.days_away} days · {new Date(f.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', timeZone: IST })}
+            {f.name} · {t('in {n} days', { n: f.days_away })} · {new Date(f.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', timeZone: IST })}
           </div>
           <div className="text-sm text-muted">
             {s.products_to_order
-              ? `${s.products_to_order} products need extra stock (~${moneyCompact(s.extra_revenue)} extra sales)${s.earliest_order_by ? ` — first order by ${shortDate(s.earliest_order_by)}` : ''}.`
-              : 'Stock already covers the expected festival demand.'}
+              ? t('{n} products need extra stock (~{amount} extra sales)', { n: s.products_to_order, amount: moneyCompact(s.extra_revenue) }) + (s.earliest_order_by ? ` — ${t('first order by')} ${shortDate(s.earliest_order_by)}` : '')
+              : t('Stock already covers the expected festival demand.')}
           </div>
         </div>
         <ChevronRight className="size-5 text-muted transition group-hover:translate-x-0.5" />

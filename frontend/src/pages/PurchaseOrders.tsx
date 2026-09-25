@@ -9,6 +9,7 @@ import { qrDataUrl } from '@/lib/billing'
 import { whatsappLink } from '@/lib/speech'
 import type { POStatus, PurchaseOrder } from '@/lib/types'
 import { dateTime, money, number, shortDate } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 const TABS: { value: string; label: string }[] = [
   { value: 'open', label: 'Open' },
@@ -22,6 +23,7 @@ const TABS: { value: string; label: string }[] = [
 const invalidate = [['purchase-orders'], keys.dashboard, keys.reorder, keys.products, ['health']]
 
 export default function PurchaseOrders() {
+  const t = useT()
   const [tab, setTab] = useState('open')
   const orders = usePurchaseOrders(tab)
   const stats = usePOStats()
@@ -37,12 +39,12 @@ export default function PurchaseOrders() {
   return (
     <div>
       <PageHeader
-        title="Purchase orders"
-        description="Draft → approved → ordered → received. Agents draft; managers approve."
+        title={t('Purchase orders')}
+        description={t('Draft → approved → ordered → received. Agents draft; managers approve.')}
         actions={
           can('staff') && (
             <Button onClick={() => generate.mutate(undefined)} loading={generate.isPending}>
-              <Sparkles className="size-4" /> Generate from recommendations
+              <Sparkles className="size-4" /> {t('Generate from recommendations')}
             </Button>
           )
         }
@@ -61,19 +63,19 @@ export default function PurchaseOrders() {
         {orders.isLoading ? (
           <div className="space-y-2 p-4">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-10" />)}</div>
         ) : !orders.data?.length ? (
-          <EmptyState icon={<ShoppingCart className="size-5" />} title="No purchase orders here" description="Generate drafts from recommendations or ask the Procurement agent." />
+          <EmptyState icon={<ShoppingCart className="size-5" />} title={t('No purchase orders here')} description={t('Generate drafts from recommendations or ask the Procurement agent.')} />
         ) : (
           <Table>
             <thead>
               <tr>
-                <Th>PO</Th>
-                <Th>Supplier</Th>
-                <Th>Status</Th>
-                <Th>Created by</Th>
-                <Th className="text-right">Lines</Th>
-                <Th className="text-right">Units</Th>
-                <Th className="text-right">Total (incl. GST)</Th>
-                <Th>Expected</Th>
+                <Th>{t('PO')}</Th>
+                <Th>{t('Supplier')}</Th>
+                <Th>{t('Status')}</Th>
+                <Th>{t('Created by')}</Th>
+                <Th className="text-right">{t('Lines')}</Th>
+                <Th className="text-right">{t('Units')}</Th>
+                <Th className="text-right">{t('Total (incl. GST)')}</Th>
+                <Th>{t('Expected')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -104,6 +106,7 @@ function poWhatsApp(po: PurchaseOrder, shop: string): string {
 }
 
 function PODialog({ po: initial, onClose }: { po: PurchaseOrder; onClose: () => void }) {
+  const t = useT()
   const { can } = useAuth()
   const [po, setPo] = useState(initial)
   const shop = useBillingProfile().data?.name ?? 'our shop'
@@ -124,11 +127,11 @@ function PODialog({ po: initial, onClose }: { po: PurchaseOrder; onClose: () => 
   })
   const next: { status: POStatus; label: string; icon: typeof Send; variant?: 'primary' | 'success' }[] =
     po.status === 'draft'
-      ? [{ status: 'approved', label: 'Approve', icon: ThumbsUp }]
+      ? [{ status: 'approved', label: t('Approve'), icon: ThumbsUp }]
       : po.status === 'approved'
-        ? [{ status: 'ordered', label: 'Mark as ordered', icon: Send }]
+        ? [{ status: 'ordered', label: t('Mark as ordered'), icon: Send }]
         : po.status === 'ordered'
-          ? [{ status: 'received', label: 'Receive into stock', icon: PackageCheck, variant: 'success' }]
+          ? [{ status: 'received', label: t('Receive into stock'), icon: PackageCheck, variant: 'success' }]
           : []
 
   return (
@@ -145,14 +148,14 @@ function PODialog({ po: initial, onClose }: { po: PurchaseOrder; onClose: () => 
       footer={
         <>
           <Button variant="ghost" onClick={() => window.print()}>
-            <Printer className="size-4" /> Print
+            <Printer className="size-4" /> {t('Print')}
           </Button>
           <a href={whatsappLink(poWhatsApp(po, shop), po.supplier?.phone)} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium text-muted hover:bg-surface-2 hover:text-fg">
-            <MessageCircle className="size-4" /> Send on WhatsApp
+            <MessageCircle className="size-4" /> {t('Send on WhatsApp')}
           </a>
           {can('manager') && ['draft', 'approved', 'ordered'].includes(po.status) && (
             <Button variant="secondary" onClick={() => change.mutate('cancelled')} loading={change.isPending && change.variables === 'cancelled'}>
-              <X className="size-4" /> Cancel PO
+              <X className="size-4" /> {t('Cancel PO')}
             </Button>
           )}
           {can('manager') &&
@@ -167,11 +170,11 @@ function PODialog({ po: initial, onClose }: { po: PurchaseOrder; onClose: () => 
       <div className="space-y-4">
         <div className="flex flex-wrap gap-6 text-sm">
           <div>
-            <div className="text-xs text-muted">Created by</div>
+            <div className="text-xs text-muted">{t('Created by')}</div>
             <Actor actor={po.created_by} />
           </div>
           <div>
-            <div className="text-xs text-muted">Expected</div>
+            <div className="text-xs text-muted">{t('Expected')}</div>
             {po.expected_at ? shortDate(po.expected_at) : '—'}
           </div>
           <div>
@@ -180,26 +183,26 @@ function PODialog({ po: initial, onClose }: { po: PurchaseOrder; onClose: () => 
           </div>
           {po.supplier?.gstin && (
             <div>
-              <div className="text-xs text-muted">Supplier GSTIN</div>
+              <div className="text-xs text-muted">{t('Supplier GSTIN')}</div>
               <span className="font-mono text-xs">{po.supplier.gstin}</span>
             </div>
           )}
         </div>
         {po.tax.eway_bill_required && (
           <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
-            <Truck className="size-4 shrink-0" /> Value is above ₹50,000 — the supplier must generate an <b>e-way bill</b> before dispatch.
+            <Truck className="size-4 shrink-0" /> {t('Value is above ₹50,000 — the supplier must generate an')} <b>{t('e-way bill')}</b> before dispatch.
           </div>
         )}
         {po.notes && <p className="rounded-lg bg-surface-2 px-3 py-2 text-sm text-muted">{po.notes}</p>}
         <Table>
           <thead>
             <tr>
-              <Th>SKU</Th>
-              <Th>Product</Th>
-              <Th className="text-right">Qty</Th>
-              <Th className="text-right">Unit cost</Th>
-              {po.tax.enabled && <Th className="text-right">GST</Th>}
-              <Th className="text-right">Total</Th>
+              <Th>{t('SKU')}</Th>
+              <Th>{t('Product')}</Th>
+              <Th className="text-right">{t('Qty')}</Th>
+              <Th className="text-right">{t('Unit cost')}</Th>
+              {po.tax.enabled && <Th className="text-right">{t('GST')}</Th>}
+              <Th className="text-right">{t('Total')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -218,22 +221,22 @@ function PODialog({ po: initial, onClose }: { po: PurchaseOrder; onClose: () => 
         <div className="flex flex-wrap items-end justify-between gap-4">
           {qr ? (
             <div className="flex items-center gap-3">
-              <img src={qr} alt="UPI QR" className="size-24 rounded-lg border border-border" />
+              <img src={qr} alt={t('UPI QR')} className="size-24 rounded-lg border border-border" />
               <div className="text-xs text-muted">Pay {po.supplier?.name} by UPI<div className="font-mono">{po.supplier?.upi_id}</div></div>
             </div>
           ) : <span />}
           {po.tax.enabled && (
             <div className="min-w-60 space-y-1 text-sm">
-              <div className="flex justify-between text-muted"><span>Taxable value</span><span className="tabular-nums">{money(po.tax.taxable)}</span></div>
+              <div className="flex justify-between text-muted"><span>{t('Taxable value')}</span><span className="tabular-nums">{money(po.tax.taxable)}</span></div>
               {po.tax.interstate ? (
-                <div className="flex justify-between text-muted"><span>IGST <Badge tone="info">inter-state</Badge></span><span className="tabular-nums">{money(po.tax.igst)}</span></div>
+                <div className="flex justify-between text-muted"><span>{t('IGST')} <Badge tone="info">{t('inter-state')}</Badge></span><span className="tabular-nums">{money(po.tax.igst)}</span></div>
               ) : (
                 <>
-                  <div className="flex justify-between text-muted"><span>CGST</span><span className="tabular-nums">{money(po.tax.cgst)}</span></div>
-                  <div className="flex justify-between text-muted"><span>SGST</span><span className="tabular-nums">{money(po.tax.sgst)}</span></div>
+                  <div className="flex justify-between text-muted"><span>{t('CGST')}</span><span className="tabular-nums">{money(po.tax.cgst)}</span></div>
+                  <div className="flex justify-between text-muted"><span>{t('SGST')}</span><span className="tabular-nums">{money(po.tax.sgst)}</span></div>
                 </>
               )}
-              <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>Grand total</span><span className="tabular-nums">{money(po.grand_total)}</span></div>
+              <div className="flex justify-between border-t border-border pt-1 font-semibold"><span>{t('Grand total')}</span><span className="tabular-nums">{money(po.grand_total)}</span></div>
             </div>
           )}
         </div>

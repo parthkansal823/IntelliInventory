@@ -8,6 +8,8 @@ import type {
   BusinessProfile,
   Customer,
   CustomerDue,
+  DayClose,
+  ExpiringItem,
   InvoiceBrief,
   InvoiceDetail,
   Alert,
@@ -182,3 +184,5 @@ export const useInvoices = (status = 'all', q = '') =>
   useQuery({ queryKey: ['invoices', status, q], queryFn: () => get<InvoiceBrief[]>(`/api/invoices?status=${status}${q ? `&q=${encodeURIComponent(q)}` : ''}`) })
 export const useInvoice = (id: number | null) =>
   useQuery({ queryKey: ['invoice', id], queryFn: () => get<InvoiceDetail>(`/api/invoices/${id}`), enabled: !!id })
+export const useDayClose = (day: string) => useQuery({ queryKey: ['billing', 'day-close', day], queryFn: () => get<DayClose>(`/api/billing/day-close?day=${day}`) })
+export const useExpiring = (days = 15) => useQuery({ queryKey: ['expiring', days], queryFn: () => get<ExpiringItem[]>(`/api/analytics/expiring?days=${days}`) })

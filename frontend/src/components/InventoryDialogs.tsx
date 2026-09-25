@@ -1,15 +1,19 @@
 import QRCode from 'qrcode'
-import { Printer, Sparkles } from 'lucide-react'
+import { CameraOff, Printer, ScanBarcode, Sparkles } from 'lucide-react'
+import { toast } from 'sonner'
 import { useEffect, useState, type FormEvent } from 'react'
 import { keys, useAction, useCategories, useGstSettings, useSuppliers, useWarehouses } from '@/hooks/queries'
 import { patch, post } from '@/lib/api'
 import type { GstSuggestion, ProductDetail, ProductRow } from '@/lib/types'
 import { money } from '@/lib/utils'
 import { Badge, Button, Dialog, Field, Input, Segmented, Select, Textarea } from './ui'
+import { tr, useT } from '@/lib/i18n'
+import { useBarcodeScanner } from '@/hooks/useBarcodeScanner'
 
 const refresh = [keys.products, ['products'], keys.dashboard, keys.alerts, keys.reorder, ['health']]
 
 export function StockDialog({ product, mode, open, onOpenChange }: { product: ProductDetail; mode: 'adjust' | 'transfer'; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const t = useT()
   const warehouses = useWarehouses()
   const [kind, setKind] = useState<'receipt' | 'sale' | 'adjustment' | 'return'>('adjustment')
   const [qty, setQty] = useState(1)
@@ -27,11 +31,11 @@ export function StockDialog({ product, mode, open, onOpenChange }: { product: Pr
 
   const adjust = useAction(
     () => post('/api/inventory/adjust', { product_id: product.id, quantity: qty, type: kind, reason: reason || undefined, warehouse_id: from || undefined }),
-    { success: 'Stock updated', invalidate: refresh, onSuccess: () => onOpenChange(false) },
+    { success: t('Stock updated'), invalidate: refresh, onSuccess: () => onOpenChange(false) },
   )
   const transfer = useAction(
     () => post('/api/inventory/transfer', { product_id: product.id, quantity: qty, from_warehouse_id: from, to_warehouse_id: to }),
-    { success: 'Transfer completed', invalidate: refresh, onSuccess: () => onOpenChange(false) },
+    { success: t('Transfer completed'), invalidate: refresh, onSuccess: () => onOpenChange(false) },
   )
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -46,7 +50,7 @@ export function StockDialog({ product, mode, open, onOpenChange }: { product: Pr
       description={`${product.name} · ${product.on_hand} on hand`}
       footer={
         <>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>{t('Cancel')}</Button>
           <Button type="submit" form="stock-form" loading={adjust.isPending || transfer.isPending}>
             {mode === 'transfer' ? 'Transfer' : 'Save'}
           </Button>
@@ -59,10 +63,10 @@ export function StockDialog({ product, mode, open, onOpenChange }: { product: Pr
             value={kind}
             onChange={setKind}
             options={[
-              { value: 'adjustment', label: 'Adjust ±' },
-              { value: 'receipt', label: 'Receive' },
-              { value: 'sale', label: 'Sell' },
-              { value: 'return', label: 'Return' },
+              { value: 'adjustment', label: t('Adjust ±') },
+              { value: 'receipt', label: t('Receive') },
+              { value: 'sale', label: t('Sell') },
+              { value: 'return', label: t('Return') },
             ]}
           />
         )}
@@ -77,7 +81,7 @@ export function StockDialog({ product, mode, open, onOpenChange }: { product: Pr
             </Select>
           </Field>
           {mode === 'transfer' ? (
-            <Field label="To">
+            <Field label={t('To')}>
               <Select value={to} onChange={(e) => setTo(Number(e.target.value))}>
                 {warehouses.data?.filter((w) => w.id !== from).map((w) => (
                   <option key={w.id} value={w.id}>{w.code} — {w.name}</option>
@@ -91,13 +95,13 @@ export function StockDialog({ product, mode, open, onOpenChange }: { product: Pr
           )}
         </div>
         {mode === 'transfer' && (
-          <Field label="Quantity">
+          <Field label={t('Quantity')}>
             <Input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} required />
           </Field>
         )}
         {mode === 'adjust' && (
-          <Field label="Reason" hint="Recorded in the audit trail">
-            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. damaged in transit" />
+          <Field label={t('Reason')} hint={t('Recorded in the audit trail')}>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('e.g. damaged in transit')} />
           </Field>
         )}
       </form>
@@ -106,11 +110,17 @@ export function StockDialog({ product, mode, open, onOpenChange }: { product: Pr
 }
 
 export function ProductFormDialog({ product, open, onOpenChange }: { product?: ProductRow; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const t = useT()
   const categories = useCategories()
   const suppliers = useSuppliers()
   const warehouses = useWarehouses()
   const gst = useGstSettings().data
-  const empty = { sku: '', name: '', description: '', category_id: '', supplier_id: '', unit_cost: 0, unit_price: 0, min_order_qty: 1, reorder_point: '', safety_stock: '', initial_qty: 0, warehouse_id: '', hsn_code: '', gst_rate: '' }
+  const { videoRef, active: scanning, start: startScan, stop: stopScan } = useBarcodeScanner((code) => {
+    setForm((f) => ({ ...f, barcode: code.replace(/^ii:/i, '') }))
+    stopScan()
+    toast.success(tr('Barcode scanned'))
+  })
+  const empty = { sku: '', name: '', description: '', category_id: '', supplier_id: '', unit_cost: 0, unit_price: 0, min_order_qty: 1, reorder_point: '', safety_stock: '', initial_qty: 0, warehouse_id: '', hsn_code: '', gst_rate: '', barcode: '', unit: 'pcs', expiry_date: '' }
   const [form, setForm] = useState<Record<string, string | number>>(empty)
   const [gstTouched, setGstTouched] = useState(false)
   const [hint, setHint] = useState<GstSuggestion | null>(null)
@@ -132,6 +142,9 @@ export function ProductFormDialog({ product, open, onOpenChange }: { product?: P
             reorder_point: product.manual_reorder_point ?? '',
             safety_stock: product.manual_safety_stock ?? '',
             hsn_code: product.hsn_code ?? '',
+            barcode: product.barcode ?? '',
+            unit: product.unit ?? 'pcs',
+            expiry_date: product.expiry_date ?? '',
             gst_rate: product.gst_rate ?? '',
           }
         : empty,
@@ -151,6 +164,9 @@ export function ProductFormDialog({ product, open, onOpenChange }: { product?: P
     min_order_qty: Number(form.min_order_qty) || 1,
     reorder_point: num(form.reorder_point),
     safety_stock: num(form.safety_stock),
+    barcode: String(form.barcode).trim() || null,
+    unit: form.unit || 'pcs',
+    expiry_date: form.expiry_date || null,
     // GST is optional: only sent when a person set it (the AI fills blanks later and never overrides you)
     ...(gstTouched ? { hsn_code: form.hsn_code || null, gst_rate: num(form.gst_rate) } : {}),
   })
@@ -183,61 +199,78 @@ export function ProductFormDialog({ product, open, onOpenChange }: { product?: P
       onOpenChange={onOpenChange}
       wide
       title={product ? `Edit ${product.sku}` : 'Add product'}
-      description="Leave reorder point / safety stock empty to let the AI compute them from demand."
+      description={t('Leave reorder point / safety stock empty to let the AI compute them from demand.')}
       footer={
         <>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" form="product-form" loading={save.isPending}>Save</Button>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>{t('Cancel')}</Button>
+          <Button type="submit" form="product-form" loading={save.isPending}>{t('Save')}</Button>
         </>
       }
     >
       <form id="product-form" onSubmit={(e) => { e.preventDefault(); save.mutate(undefined) }} className="grid gap-4 sm:grid-cols-2">
-        <Field label="SKU"><Input value={form.sku} onChange={set('sku')} disabled={!!product} required placeholder="ELC-2001" /></Field>
-        <Field label="Name"><Input value={form.name} onChange={set('name')} required /></Field>
-        <Field label="Category">
+        <Field label={t('SKU')}><Input value={form.sku} onChange={set('sku')} disabled={!!product} required placeholder={t('ELC-2001')} /></Field>
+        <Field label={t('Name')}><Input value={form.name} onChange={set('name')} required /></Field>
+        <Field label={t('Category')}>
           <Select value={form.category_id} onChange={set('category_id')}>
             <option value="">—</option>
             {categories.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
         </Field>
-        <Field label="Supplier">
+        <Field label={t('Supplier')}>
           <Select value={form.supplier_id} onChange={set('supplier_id')}>
             <option value="">—</option>
             {suppliers.data?.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.lead_time_days}d)</option>)}
           </Select>
         </Field>
-        <Field label="Unit cost (₹)"><Input type="number" step="0.01" min={0} value={form.unit_cost} onChange={set('unit_cost')} /></Field>
-        <Field label="Selling price (₹, before GST)"><Input type="number" step="0.01" min={0} value={form.unit_price} onChange={set('unit_price')} /></Field>
+        <Field label={t('Unit cost (₹)')}><Input type="number" step="0.01" min={0} value={form.unit_cost} onChange={set('unit_cost')} /></Field>
+        <Field label={t('Selling price (₹, before GST)')}><Input type="number" step="0.01" min={0} value={form.unit_price} onChange={set('unit_price')} /></Field>
+        <Field label={t('Barcode')} hint={scanning ? t('Scan barcode') : undefined}>
+          <div className="flex gap-2">
+            <Input value={form.barcode} onChange={set('barcode')} placeholder="8901234567890" className="font-mono" inputMode="numeric" />
+            <Button type="button" variant="secondary" size="icon" onClick={scanning ? stopScan : startScan} aria-label={t('Scan barcode')}>
+              {scanning ? <CameraOff className="size-4" /> : <ScanBarcode className="size-4" />}
+            </Button>
+          </div>
+          <video ref={videoRef} className={scanning ? 'mt-2 aspect-video w-full rounded-lg bg-black object-cover' : 'hidden'} muted playsInline />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t('Unit')}>
+            <Select value={form.unit} onChange={set('unit')}>
+              {['pcs', 'pack', 'kg', 'g', 'L', 'ml', 'bottle', 'box', 'dozen', 'tin', 'pouch', 'jar', 'cup'].map((u) => <option key={u}>{u}</option>)}
+            </Select>
+          </Field>
+          <Field label={t('Expiry date')}><Input type="date" value={form.expiry_date} onChange={set('expiry_date')} /></Field>
+        </div>
         {gst?.gst_enabled !== false && (
           <div className="grid gap-3 rounded-lg border border-dashed border-border p-3 sm:col-span-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-            <Field label="GST rate (optional)" hint={product?.gst_source === 'ai' && !gstTouched ? 'Filled by AI — please check' : 'Leave blank: AI fills it from the name'}>
+            <Field label={t('GST rate (optional)')} hint={product?.gst_source === 'ai' && !gstTouched ? t('Filled by AI — please check') : t('Leave blank: AI fills it from the name')}>
               <Select value={form.gst_rate} onChange={setGst('gst_rate')}>
-                <option value="">Let AI fill later</option>
+                <option value="">{t('Let AI fill later')}</option>
                 {(gst?.slabs ?? [0, 5, 18, 40]).map((r) => <option key={r} value={r}>{r}%</option>)}
               </Select>
             </Field>
-            <Field label="HSN code (optional)"><Input value={form.hsn_code} onChange={setGst('hsn_code')} placeholder="e.g. 1006" className="font-mono" /></Field>
+            <Field label={t('HSN code (optional)')}><Input value={form.hsn_code} onChange={setGst('hsn_code')} placeholder={t('e.g. 1006')} className="font-mono" /></Field>
             <Button type="button" variant="secondary" disabled={!String(form.name).trim()} loading={suggest.isPending} onClick={() => suggest.mutate(undefined)}>
-              <Sparkles className="size-4" /> Suggest with AI
+              <Sparkles className="size-4" /> {t('Suggest with AI')}
             </Button>
-            {hint && <p className="text-xs text-muted sm:col-span-3">✨ {hint.reason} <Badge tone={hint.confidence === 'high' ? 'good' : hint.confidence === 'medium' ? 'info' : 'warning'}>{hint.confidence} confidence</Badge> — confirm with your CA.</p>}
+            {hint && <p className="text-xs text-muted sm:col-span-3">✨ {hint.reason} <Badge tone={hint.confidence === 'high' ? 'good' : hint.confidence === 'medium' ? 'info' : 'warning'}>{hint.confidence} confidence</Badge> {t('— confirm with your CA.')}</p>}
           </div>
         )}
-        <Field label="Min. order qty"><Input type="number" min={1} value={form.min_order_qty} onChange={set('min_order_qty')} /></Field>
-        <Field label="Reorder point" hint="auto if empty"><Input type="number" min={0} value={form.reorder_point} onChange={set('reorder_point')} /></Field>
-        <Field label="Safety stock" hint="auto if empty"><Input type="number" min={0} value={form.safety_stock} onChange={set('safety_stock')} /></Field>
+        <Field label={t('Min. order qty')}><Input type="number" min={1} value={form.min_order_qty} onChange={set('min_order_qty')} /></Field>
+        <Field label={t('Reorder point')} hint={t('auto if empty')}><Input type="number" min={0} value={form.reorder_point} onChange={set('reorder_point')} /></Field>
+        <Field label={t('Safety stock')} hint={t('auto if empty')}><Input type="number" min={0} value={form.safety_stock} onChange={set('safety_stock')} /></Field>
         {!product && (
           <>
-            <Field label="Initial quantity"><Input type="number" min={0} value={form.initial_qty} onChange={set('initial_qty')} /></Field>
-            <Field label="Initial warehouse">
+            <Field label={t('Initial quantity')}><Input type="number" min={0} value={form.initial_qty} onChange={set('initial_qty')} /></Field>
+            <Field label={t('Initial warehouse')}>
               <Select value={form.warehouse_id} onChange={set('warehouse_id')}>
-                <option value="">Default</option>
+                <option value="">{t('Default')}</option>
                 {warehouses.data?.map((w) => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
               </Select>
             </Field>
           </>
         )}
-        <Field label="Description" className="sm:col-span-2"><Textarea rows={2} value={form.description} onChange={set('description')} /></Field>
+        <Field label={t('Description')} className="sm:col-span-2"><Textarea rows={2} value={form.description} onChange={set('description')} /></Field>
       </form>
     </Dialog>
   )
@@ -246,6 +279,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: { product?: P
 interface ImportResult { ok: boolean; error?: string; committed: boolean; summary: { create: number; update: number; error: number }; rows: { line: number; sku: string; name: string; action: string; errors: string[] }[] }
 
 export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const t = useT()
   const [csv, setCsv] = useState('')
   const [preview, setPreview] = useState<ImportResult | null>(null)
   const dryRun = useAction(() => post<ImportResult>('/api/inventory/import', { csv, commit: false }), { onSuccess: setPreview })
@@ -261,21 +295,21 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       open={open}
       onOpenChange={onOpenChange}
       wide
-      title="Import products from CSV"
-      description="Preview validates every row before anything is written."
+      title={t('Import products from CSV')}
+      description={t('Preview validates every row before anything is written.')}
       footer={
         <>
-          <Button variant="secondary" onClick={() => dryRun.mutate(undefined)} loading={dryRun.isPending} disabled={!csv.trim()}>Preview</Button>
-          <Button onClick={() => commit.mutate(undefined)} loading={commit.isPending} disabled={!preview?.ok}>Import</Button>
+          <Button variant="secondary" onClick={() => dryRun.mutate(undefined)} loading={dryRun.isPending} disabled={!csv.trim()}>{t('Preview')}</Button>
+          <Button onClick={() => commit.mutate(undefined)} loading={commit.isPending} disabled={!preview?.ok}>{t('Import')}</Button>
         </>
       }
     >
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Input type="file" accept=".csv,text/csv" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setCsv(await f.text()); setPreview(null) } }} />
-          <Button variant="ghost" size="sm" onClick={() => { setCsv(template); setPreview(null) }}>Use template</Button>
+          <Button variant="ghost" size="sm" onClick={() => { setCsv(template); setPreview(null) }}>{t('Use template')}</Button>
         </div>
-        <Textarea rows={6} value={csv} onChange={(e) => { setCsv(e.target.value); setPreview(null) }} placeholder="…or paste CSV here" className="font-mono text-xs" />
+        <Textarea rows={6} value={csv} onChange={(e) => { setCsv(e.target.value); setPreview(null) }} placeholder={t('…or paste CSV here')} className="font-mono text-xs" />
         {preview && (
           <div className="rounded-lg border border-border">
             <div className="flex gap-2 border-b border-border px-3 py-2 text-xs">
@@ -303,6 +337,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 }
 
 export function LabelDialog({ product, open, onOpenChange }: { product: ProductRow; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const t = useT()
   const [src, setSrc] = useState('')
   useEffect(() => {
     if (open) QRCode.toDataURL(`ii:${product.sku}`, { margin: 1, width: 320 }).then(setSrc)
@@ -316,7 +351,7 @@ export function LabelDialog({ product, open, onOpenChange }: { product: ProductR
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Product label" description="Scan it on the Scan page to receive, sell or count this item." footer={<Button onClick={print}><Printer className="size-4" /> Print label</Button>}>
+    <Dialog open={open} onOpenChange={onOpenChange} title={t('Product label')} description={t('Scan it on the Scan page to receive, sell or count this item.')} footer={<Button onClick={print}><Printer className="size-4" /> {t('Print label')}</Button>}>
       <div className="flex flex-col items-center gap-2 py-2">
         {src && <img src={src} alt={`QR code for ${product.sku}`} className="size-48 rounded-lg border border-border bg-white p-2" />}
         <div className="text-base font-semibold">{product.name}</div>

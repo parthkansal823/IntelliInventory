@@ -29,6 +29,10 @@ export interface ProductRow {
   gst_rate: number | null
   gst_source: 'manual' | 'ai' | null
   price_incl_gst: number
+  barcode: string | null
+  unit: string
+  expiry_date: string | null
+  days_to_expiry: number | null
   category?: string | null
   supplier?: string | null
   on_hand?: number
@@ -241,6 +245,7 @@ export interface FestivalInfo {
   buying_starts: string
   emoji: string
   note: string
+  regional: boolean
   categories: Record<string, number>
 }
 
@@ -428,3 +433,20 @@ export interface CustomerDue {
   oldest: string
   days_outstanding: number
 }
+
+export interface DayClose {
+  date: string
+  bills: number
+  cancelled: number
+  sales: number
+  tax: number
+  discount: number
+  received: Partial<Record<'cash' | 'upi' | 'card' | 'bank', number>>
+  received_total: number
+  cash_in_drawer: number
+  udhaar_given: number
+  udhaar_collected: number
+  top_items: { sku: string; name: string; quantity: number; amount: number }[]
+}
+
+export interface ExpiringItem { product_id: number; sku: string; name: string; expiry_date: string; days_left: number; on_hand: number; value: number; action: string }

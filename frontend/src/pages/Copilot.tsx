@@ -11,6 +11,7 @@ import { del } from '@/lib/api'
 import { canSpeak, createRecognition, speak, stopSpeaking, voiceLang, type VoiceLang } from '@/lib/speech'
 import type { ChatItem } from '@/lib/types'
 import { cn, relativeTime } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 const SUGGESTIONS = [
   { title: 'Aaj ki sale', prompt: 'aaj ki sale kitni hui?' },
@@ -34,6 +35,7 @@ function groupTurns(items: ChatItem[]) {
 }
 
 export default function Copilot() {
+  const t = useT()
   const [params, setParams] = useSearchParams()
   const overview = useAgents()
   const conversations = useConversations()
@@ -131,7 +133,7 @@ export default function Copilot() {
       <aside className="hidden flex-col border-r border-border lg:flex">
         <div className="p-3">
           <button onClick={() => { chat.load(null); setParams({}) }} className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2 text-sm text-muted transition hover:border-brand hover:text-brand">
-            <Plus className="size-4" /> New chat
+            <Plus className="size-4" /> {t('New chat')}
           </button>
         </div>
         <ul className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
@@ -147,7 +149,7 @@ export default function Copilot() {
                   {c.agent} · {relativeTime(c.updated_at)}
                 </div>
               </button>
-              <button onClick={() => removeConv.mutate(c.id)} className="absolute top-2 right-2 hidden rounded p-1 text-subtle hover:text-critical group-hover:block" aria-label="Delete conversation">
+              <button onClick={() => removeConv.mutate(c.id)} className="absolute top-2 right-2 hidden rounded p-1 text-subtle hover:text-critical group-hover:block" aria-label={t('Delete conversation')}>
                 <Trash2 className="size-3.5" />
               </button>
             </li>
@@ -162,7 +164,7 @@ export default function Copilot() {
             size="sm"
             value={agent}
             onChange={setAgent}
-            options={(agents.length ? agents : [{ name: 'copilot', title: 'Copilot' }]).map((a) => ({
+            options={(agents.length ? agents : [{ name: 'copilot', title: t('Copilot') }]).map((a) => ({
               value: a.name,
               label: (
                 <span className="flex items-center gap-1.5">
@@ -173,7 +175,7 @@ export default function Copilot() {
             }))}
           />
           <div className="ml-auto flex items-center gap-2">
-            <Select value={provider} onChange={(e) => setProvider(e.target.value)} className="h-8 w-40 text-xs" aria-label="AI provider">
+            <Select value={provider} onChange={(e) => setProvider(e.target.value)} className="h-8 w-40 text-xs" aria-label={t('AI provider')}>
               <option value="auto">Auto ({active ?? '…'})</option>
               {providers.map((p) => (
                 <option key={p.name} value={p.name} disabled={!p.configured}>
@@ -186,7 +188,7 @@ export default function Copilot() {
             </Select>
             {canSpeak() && (
               <Tooltip content={readAloud ? 'Stop reading answers aloud' : 'Read answers aloud'}>
-                <button onClick={() => { setReadAloud(!readAloud); stopSpeaking() }} className={cn('rounded-lg p-2', readAloud ? 'bg-brand-soft text-brand' : 'text-muted hover:bg-surface-2')} aria-label="Read aloud">
+                <button onClick={() => { setReadAloud(!readAloud); stopSpeaking() }} className={cn('rounded-lg p-2', readAloud ? 'bg-brand-soft text-brand' : 'text-muted hover:bg-surface-2')} aria-label={t('Read aloud')}>
                   {readAloud ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
                 </button>
               </Tooltip>
@@ -213,7 +215,7 @@ export default function Copilot() {
                 <div className="mt-8 grid gap-2 text-left sm:grid-cols-2">
                   {SUGGESTIONS.map((s) => (
                     <button key={s.title} onClick={() => send(s.prompt)} className="rounded-xl border border-border bg-surface p-3 text-left transition hover:border-brand/50 hover:shadow-sm">
-                      <div className="text-xs font-medium text-brand">{s.title}</div>
+                      <div className="text-xs font-medium text-brand">{t(s.title)}</div>
                       <div className="mt-0.5 text-sm text-muted">{s.prompt}</div>
                     </button>
                   ))}
@@ -248,30 +250,30 @@ export default function Copilot() {
             />
             {createRecognitionSupported() && (
               <Tooltip content={lang === 'hi-IN' ? 'Voice: Hindi — click for English' : 'Voice: English — click for Hindi'}>
-                <button onClick={switchLang} className="rounded-xl px-2 py-1.5 text-xs font-semibold text-muted hover:bg-surface-2" aria-label="Voice language">
+                <button onClick={switchLang} className="rounded-xl px-2 py-1.5 text-xs font-semibold text-muted hover:bg-surface-2" aria-label={t('Voice language')}>
                   {lang === 'hi-IN' ? 'हिं' : 'EN'}
                 </button>
               </Tooltip>
             )}
             {createRecognitionSupported() && (
               <Tooltip content={listening ? 'Stop listening' : lang === 'hi-IN' ? 'बोलिए (Hindi / Hinglish)' : 'Speak (English / Hinglish)'}>
-                <button onClick={toggleMic} className={cn('rounded-xl p-2', listening ? 'bg-critical/10 text-critical' : 'text-muted hover:bg-surface-2')} aria-label="Voice input">
+                <button onClick={toggleMic} className={cn('rounded-xl p-2', listening ? 'bg-critical/10 text-critical' : 'text-muted hover:bg-surface-2')} aria-label={t('Voice input')}>
                   {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
                 </button>
               </Tooltip>
             )}
             {chat.streaming ? (
-              <button onClick={chat.stop} className="rounded-xl bg-fg p-2 text-bg" aria-label="Stop">
+              <button onClick={chat.stop} className="rounded-xl bg-fg p-2 text-bg" aria-label={t('Stop')}>
                 <Square className="size-4" />
               </button>
             ) : (
-              <button onClick={() => send()} disabled={!input.trim()} className="rounded-xl bg-brand p-2 text-brand-fg disabled:opacity-40" aria-label="Send">
+              <button onClick={() => send()} disabled={!input.trim()} className="rounded-xl bg-brand p-2 text-brand-fg disabled:opacity-40" aria-label={t('Send')}>
                 <SendHorizontal className="size-4" />
               </button>
             )}
           </div>
           <p className="mx-auto mt-1.5 max-w-3xl text-center text-[11px] text-subtle">
-            Agents use live tools. Stock changes, transfers and PO status changes always wait for a manager's approval.
+            {t('Agents use live tools. Stock changes, transfers and PO status changes always wait for a manager\'s approval.')}
           </p>
         </div>
       </section>
@@ -283,12 +285,12 @@ export default function Copilot() {
             <TabsTrigger value="approvals">
               Approvals {approvals.data?.length ? <Badge tone="warning">{approvals.data.length}</Badge> : null}
             </TabsTrigger>
-            <TabsTrigger value="trace">Trace</TabsTrigger>
-            <TabsTrigger value="agents">Agents</TabsTrigger>
+            <TabsTrigger value="trace">{t('Trace')}</TabsTrigger>
+            <TabsTrigger value="agents">{t('Agents')}</TabsTrigger>
           </TabsList>
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             <TabsContent value="approvals" className="space-y-3 pt-1">
-              {approvals.data?.length ? approvals.data.map((a) => <ApprovalCard key={a.id} approval={a} />) : <EmptyState title="Nothing to approve" description="Write actions requested by agents appear here." />}
+              {approvals.data?.length ? approvals.data.map((a) => <ApprovalCard key={a.id} approval={a} />) : <EmptyState title={t('Nothing to approve')} description={t('Write actions requested by agents appear here.')} />}
             </TabsContent>
             <TabsContent value="trace" className="pt-1">
               <TracePanel conversationId={chat.meta.conversationId} />

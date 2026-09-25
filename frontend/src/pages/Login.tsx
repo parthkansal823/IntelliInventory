@@ -4,6 +4,8 @@ import { Navigate, useNavigate } from 'react-router'
 import { Button, Card, Field, Input } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 import { usePublicConfig } from '@/hooks/usePublicConfig'
+import { LangToggle } from '@/components/Onboarding'
+import { useT } from '@/lib/i18n'
 
 const FEATURES = [
   { icon: Bot, title: 'Multi-agent copilot', text: 'Free Hermes AI (runs on your own machine) or an offline planner — with human approvals.' },
@@ -13,6 +15,7 @@ const FEATURES = [
 ]
 
 export function LoginPage() {
+  const t = useT()
   const { user, login } = useAuth()
   const navigate = useNavigate()
   const config = usePublicConfig()
@@ -46,16 +49,17 @@ export function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-full lg:grid-cols-2">
+    <div className="relative grid min-h-full lg:grid-cols-2">
+      <LangToggle className="absolute top-4 right-4 z-10" />
       <div className="relative hidden overflow-hidden bg-[#0f0e1a] p-10 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="absolute -top-32 -right-32 size-96 rounded-full bg-indigo-500/30 blur-3xl" />
         <div className="absolute -bottom-40 -left-20 size-96 rounded-full bg-violet-600/20 blur-3xl" />
         <div className="relative flex items-center gap-3">
           <img src="/favicon.svg" className="size-10 rounded-xl" alt="" />
-          <span className="text-lg font-semibold">IntelliInventory</span>
+          <span className="text-lg font-semibold">{config.data?.shop_name ?? 'IntelliInventory'}</span>
         </div>
         <div className="relative max-w-md">
-          <h1 className="text-3xl leading-tight font-semibold tracking-tight">Inventory that plans itself — and asks before it acts.</h1>
+          <h1 className="text-3xl leading-tight font-semibold tracking-tight">{t('Inventory that plans itself — and asks before it acts.')}</h1>
           <div className="mt-8 grid gap-5">
             {FEATURES.map((f) => (
               <div key={f.title} className="flex gap-3">
@@ -63,36 +67,36 @@ export function LoginPage() {
                   <f.icon className="size-4" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium">{f.title}</div>
-                  <div className="text-sm text-white/60">{f.text}</div>
+                  <div className="text-sm font-medium">{t(f.title)}</div>
+                  <div className="text-sm text-white/60">{t(f.text)}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
-        <p className="relative text-xs text-white/40">FastAPI · React 19 · Hermes Agent · MCP</p>
+        <p className="relative text-xs text-white/40">{t('FastAPI · React 19 · Hermes Agent · MCP')}</p>
       </div>
 
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
             <img src="/favicon.svg" className="mb-3 size-10 rounded-xl" alt="" />
-            <h1 className="text-xl font-semibold">IntelliInventory</h1>
+            <h1 className="text-xl font-semibold">{config.data?.shop_name ?? 'IntelliInventory'}</h1>
           </div>
-          <h2 className="text-lg font-semibold">Sign in</h2>
+          <h2 className="text-lg font-semibold">{t('Sign in')}</h2>
           <p className="mt-1 text-sm text-muted">
             {demoAccounts.length ? 'Live demo — pick an account below, the password is prefilled. Data resets periodically.' : 'Sign in with the account your administrator created.'}
           </p>
           <form onSubmit={submit} className="mt-6 space-y-4">
-            <Field label="Email">
+            <Field label={t('Email')}>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
             </Field>
-            <Field label="Password">
+            <Field label={t('Password')}>
               <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
             </Field>
             {error && <p className="text-sm text-critical">{error}</p>}
             <Button type="submit" className="w-full" size="lg" loading={busy}>
-              Sign in
+              {t('Sign in')}
             </Button>
           </form>
           {demoAccounts.length > 0 && (

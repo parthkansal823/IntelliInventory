@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { download, post } from '@/lib/api'
 import type { ProductRow, StockStatus } from '@/lib/types'
 import { cn, dateTime, money, number, shortDate, titleCase } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 type SortKey = 'sku' | 'name' | 'on_hand' | 'days_of_cover' | 'avg_daily_demand' | 'stock_value' | 'status'
 
@@ -26,12 +27,13 @@ function SortTh({ k, sort, onSort, children, className }: { k: SortKey; sort: { 
 const STATUS_ORDER: Record<StockStatus, number> = { out: 0, critical: 1, low: 2, healthy: 3, overstock: 4 }
 
 export default function Inventory() {
+  const t = useT()
   const products = useProducts()
   const categories = useCategories()
   const { can } = useAuth()
   const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState<'all' | 'attention' | StockStatus>('all')
+  const [status, setStatus] = useState<'all' | 'attention' | 'expiring' | StockStatus>(params.get('filter') === 'expiring' ? 'expiring' : 'all')
   const [category, setCategory] = useState('')
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'status', dir: 1 })
   const [dialog, setDialog] = useState<null | 'new' | 'import'>(null)
@@ -43,6 +45,7 @@ export default function Inventory() {
     if (q) list = list.filter((p) => `${p.sku} ${p.name} ${p.category} ${p.supplier}`.toLowerCase().includes(q))
     if (category) list = list.filter((p) => String(p.category_id) === category)
     if (status === 'attention') list = list.filter((p) => ['out', 'critical', 'low'].includes(p.status ?? ''))
+    else if (status === 'expiring') list = list.filter((p) => p.days_to_expiry != null && p.days_to_expiry <= 15)
     else if (status !== 'all') list = list.filter((p) => p.status === status)
     const val = (p: ProductRow) => (sort.key === 'status' ? STATUS_ORDER[p.status ?? 'healthy'] : (p[sort.key] ?? -1))
     return [...list].sort((a, b) => {
@@ -55,6 +58,7 @@ export default function Inventory() {
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, dir: s.key === key ? ((-s.dir) as 1 | -1) : 1 }))
   const attention = (products.data ?? []).filter((p) => ['out', 'critical', 'low'].includes(p.status ?? '')).length
   const gstOn = useGstSettings().data?.gst_enabled ?? true
+  const expiring = (products.data ?? []).filter((p) => p.days_to_expiry != null && p.days_to_expiry <= 15).length
   const missingGst = (products.data ?? []).filter((p) => p.is_active && p.gst_rate == null).length
   const fillGst = useAction(() => post<{ filled: number }>('/api/india/gst/autofill', {}), {
     success: (r) => `AI filled HSN + GST for ${r.filled} product(s) — marked "AI" for you to review`,
@@ -64,7 +68,7 @@ export default function Inventory() {
   return (
     <div>
       <PageHeader
-        title="Stock"
+        title={t('Stock')}
         description={`${rows.length} products · live stock, demand and when to reorder`}
         actions={
           <>
@@ -74,15 +78,15 @@ export default function Inventory() {
               </Button>
             )}
             <Button variant="secondary" onClick={() => download('/api/inventory/export.csv', 'inventory.csv')}>
-              <Download className="size-4" /> Export
+              <Download className="size-4" /> {t('Export')}
             </Button>
             {can('manager') && (
               <>
                 <Button variant="secondary" onClick={() => setDialog('import')}>
-                  <Upload className="size-4" /> Import CSV
+                  <Upload className="size-4" /> {t('Import CSV')}
                 </Button>
                 <Button onClick={() => setDialog('new')}>
-                  <PackagePlus className="size-4" /> Add product
+                  <PackagePlus className="size-4" /> {t('Add product')}
                 </Button>
               </>
             )}
@@ -94,10 +98,10 @@ export default function Inventory() {
         <div className="flex flex-wrap items-center gap-3 border-b border-border p-3">
           <div className="relative min-w-56 flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search SKU, name, supplier…" className="pl-9" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('Search SKU, name, supplier…')} className="pl-9" />
           </div>
           <Select value={category} onChange={(e) => setCategory(e.target.value)} className="w-44">
-            <option value="">All categories</option>
+            <option value="">{t('All categories')}</option>
             {categories.data?.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -109,28 +113,29 @@ export default function Inventory() {
             value={status}
             onChange={setStatus}
             options={[
-              { value: 'all', label: 'All' },
-              { value: 'attention', label: <>Needs attention <Badge tone="warning">{attention}</Badge></> },
-              { value: 'overstock', label: 'Overstock' },
+              { value: 'all', label: t('All') },
+              { value: 'attention', label: <>{t('Needs attention')} <Badge tone="warning">{attention}</Badge></> },
+              { value: 'expiring', label: <>{t('Expiring soon')} <Badge tone="critical">{expiring}</Badge></> },
+              { value: 'overstock', label: t('Overstock') },
             ]}
           />
         </div>
         {products.isLoading ? (
           <div className="space-y-2 p-4">{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-10" />)}</div>
         ) : !rows.length ? (
-          <EmptyState title="No products match" description="Try a different search or filter." />
+          <EmptyState title={t('No products match')} description={t('Try a different search or filter.')} />
         ) : (
           <Table>
             <thead>
               <tr>
-                <SortTh sort={sort} onSort={toggleSort} k="sku">SKU</SortTh>
-                <SortTh sort={sort} onSort={toggleSort} k="name">Product</SortTh>
-                <SortTh sort={sort} onSort={toggleSort} k="on_hand">On hand · ROP</SortTh>
-                <SortTh sort={sort} onSort={toggleSort} k="status">Status</SortTh>
-                <SortTh sort={sort} onSort={toggleSort} k="days_of_cover" className="text-right">Cover</SortTh>
-                <SortTh sort={sort} onSort={toggleSort} k="avg_daily_demand" className="text-right">Demand/day</SortTh>
-                <Th>ABC</Th>
-                <SortTh sort={sort} onSort={toggleSort} k="stock_value" className="text-right">Value</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="sku">{t('SKU')}</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="name">{t('Product')}</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="on_hand">{t('On hand · ROP')}</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="status">{t('Status')}</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="days_of_cover" className="text-right">{t('Cover')}</SortTh>
+                <SortTh sort={sort} onSort={toggleSort} k="avg_daily_demand" className="text-right">{t('Demand/day')}</SortTh>
+                <Th>{t('ABC')}</Th>
+                <SortTh sort={sort} onSort={toggleSort} k="stock_value" className="text-right">{t('Value')}</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -171,6 +176,7 @@ export default function Inventory() {
 }
 
 function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void }) {
+  const t = useT()
   const { data: p, isLoading } = useProduct(id)
   const gstOn = useGstSettings().data?.gst_enabled ?? true
   const { can } = useAuth()
@@ -196,18 +202,18 @@ function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void
           <div className="flex flex-wrap gap-2">
             {can('staff') && (
               <>
-                <Button size="sm" onClick={() => setDialog('adjust')}>Adjust stock</Button>
-                <Button size="sm" variant="secondary" onClick={() => setDialog('transfer')}>Transfer</Button>
+                <Button size="sm" onClick={() => setDialog('adjust')}>{t('Adjust stock')}</Button>
+                <Button size="sm" variant="secondary" onClick={() => setDialog('transfer')}>{t('Transfer')}</Button>
               </>
             )}
             <Button size="sm" variant="secondary" onClick={() => setDialog('label')}>
-              <QrCode className="size-3.5" /> Label
+              <QrCode className="size-3.5" /> {t('Label')}
             </Button>
             {can('manager') && (
-              <Button size="sm" variant="secondary" onClick={() => setDialog('edit')}>Edit</Button>
+              <Button size="sm" variant="secondary" onClick={() => setDialog('edit')}>{t('Edit')}</Button>
             )}
             <Button size="sm" variant="ghost" onClick={() => navigate(`/copilot?q=${encodeURIComponent(`Investigate ${p.sku}: stock, forecast, anomalies and the best next action`)}`)}>
-              <Sparkles className="size-3.5" /> Ask Copilot
+              <Sparkles className="size-3.5" /> {t('Ask Copilot')}
             </Button>
           </div>
 
@@ -221,6 +227,9 @@ function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void
               ['Reorder point', number(p.reorder_point)],
               ['EOQ', number(p.eoq)],
               ['Lead time', `${p.lead_time_days}d`],
+              ['Barcode', p.barcode ?? '—'],
+              ['Unit', p.unit],
+              ['Expiry', p.expiry_date ? `${shortDate(p.expiry_date)}${p.days_to_expiry != null && p.days_to_expiry <= 15 ? ` · ${p.days_to_expiry}d` : ''}` : '—'],
               ...(gstOn
                 ? [
                     ['GST', p.gst_rate == null ? 'AI will fill' : `${p.gst_rate}%${p.gst_source === 'ai' ? ' · AI (check)' : ''}`],
@@ -231,8 +240,8 @@ function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void
                 : []),
             ].map(([label, value]) => (
               <Card key={label} className="p-3">
-                <div className="text-xs text-muted">{label}</div>
-                <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
+                <div className="text-xs text-muted">{t(label)}</div>
+                <div className="mt-1 truncate text-lg font-semibold tabular-nums">{value}</div>
               </Card>
             ))}
           </div>
@@ -247,7 +256,7 @@ function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void
 
           <Card>
             <div className="flex items-center justify-between border-b border-border px-4 py-2">
-              <Segmented size="sm" value={tab} onChange={setTab} options={[{ value: 'forecast', label: 'Demand forecast' }, { value: 'movements', label: 'Movements' }]} />
+              <Segmented size="sm" value={tab} onChange={setTab} options={[{ value: 'forecast', label: t('Demand forecast') }, { value: 'movements', label: t('Movements') }]} />
               {tab === 'forecast' && p.forecast && (
                 <span className="text-xs text-muted">
                   {p.forecast.method} · MAPE {p.forecast.mape ?? '—'}% · {p.forecast.total_forecast} units / 30d
@@ -256,7 +265,7 @@ function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void
             </div>
             <div className="p-4">
               {tab === 'forecast' ? (
-                p.forecast ? <ForecastChart data={p.forecast} /> : <EmptyState title="No demand history" />
+                p.forecast ? <ForecastChart data={p.forecast} /> : <EmptyState title={t('No demand history')} />
               ) : (
                 <ul className="max-h-80 divide-y divide-border overflow-y-auto text-sm">
                   {p.movements.map((m) => (
@@ -284,7 +293,7 @@ function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void
           </Card>
 
           <Card>
-            <div className="border-b border-border px-4 py-2.5 text-sm font-medium">Stock by warehouse</div>
+            <div className="border-b border-border px-4 py-2.5 text-sm font-medium">{t('Stock by warehouse')}</div>
             <ul className="divide-y divide-border">
               {p.warehouses.map((w) => (
                 <li key={w.warehouse_id} className="flex items-center justify-between px-4 py-2.5 text-sm">
@@ -294,7 +303,7 @@ function ProductDrawer({ id, onClose }: { id: number | null; onClose: () => void
                   <span className="font-medium tabular-nums">{number(w.quantity)}</span>
                 </li>
               ))}
-              {!p.warehouses.length && <li className="px-4 py-3 text-sm text-muted">No stock in any warehouse.</li>}
+              {!p.warehouses.length && <li className="px-4 py-3 text-sm text-muted">{t('No stock in any warehouse.')}</li>}
             </ul>
           </Card>
 

@@ -45,9 +45,16 @@ IntelliInventory tools are exposed through MCP as `mcp_intelliinventory_<tool>`.
 1. `customer_dues` → list customers, balance, days outstanding; suggest a WhatsApp reminder from Billing → Khata.
 2. For one bill: `get_invoice` with the number (e.g. `INV/26-27/00007`).
 
+**"Aaj ka hisaab" / day-end closing**
+1. `day_close` (optionally a date YYYY-MM-DD) → bills, sale, cash in the galla, UPI/card, udhaar given/collected, top items.
+
+**Expiring stock ("kaunsa maal expire hone wala hai?")**
+1. `expiring_products` (days 15) → sell first / discount / return to supplier.
+
 **Festival preparation ("Diwali ke liye kya stock karna hai?")**
 1. `plan_festival_stock` (festival name optional — defaults to the next one).
-2. Report products to order, quantities and **order-by dates**; offer to draft POs with `create_purchase_order`.
+2. Festivals follow the shop's state (regional ones like Lohri, Durga Puja, Pongal are included only there).
+   Report products to order, quantities and **order-by dates**; offer to draft POs with `create_purchase_order`.
 
 **GST**
 1. `gst_summary` for output tax vs input tax credit by slab (GST can be switched off by the shop).

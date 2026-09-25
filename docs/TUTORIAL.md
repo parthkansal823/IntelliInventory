@@ -4,11 +4,19 @@ Yeh guide aapko **zero se** sab kuch sikhayegi: computer pe kaise chalana hai, r
 AI Copilot, GST, festival planning, aur **free mein online kaise daalna hai** (ek demo link + ek asli dukaan ka link).
 
 > Sab kuch **free** hai. Koi paid API nahi. AI (Hermes) aapke apne computer / free server pe chalta hai.
+>
+> **Hindi mein chalana hai?** App mein upar **EN / हिं** button dabao — poora app Hindi mein. Pehli baar login pe ek chhota
+> tutorial khulta hai (❓ button se dobara dekh sakte ho) aur ek **video** bhi hai: [tutorial video](../frontend/public/tutorial.webm)
+> (app mein ❓ → वीडियो देखें).
+>
+> Demo dukaan: **Kansal General Store, Kharar (Punjab)** — kiryana ka saaman. App har shop aur har state ke liye chalta hai;
+> festivals aapki dukaan ke state ke hisaab se aate hain.
 
 ---
 
 ## Index
 
+0. [Hindi, tutorial aur video](#0-hindi-tutorial-aur-video)
 1. [Yeh app kya karta hai?](#1-yeh-app-kya-karta-hai)
 2. [Computer pe chalana (Windows / Mac / Linux)](#2-computer-pe-chalana)
 3. [Pehla login — Demo vs Asli dukaan](#3-pehla-login--demo-vs-asli-dukaan)
@@ -29,6 +37,20 @@ AI Copilot, GST, festival planning, aur **free mein online kaise daalna hai** (e
 
 ---
 
+## 0. Hindi, tutorial aur video
+
+| | |
+|---|---|
+| ![Hindi login](screenshots/login-hi.png) | ![Tutorial](screenshots/onboarding.png) |
+| **Hindi / English** — upar EN / हिं | **Pehle login pe tutorial** — ❓ se dobara |
+
+- Bhasha ek click mein badlo — login page pe bhi. Aapki choice browser yaad rakhta hai.
+- **Video** (66 sec, Hindi + English captions): app mein ❓ → **वीडियो देखें**, ya `frontend/public/tutorial.webm`.
+
+![Dashboard Hindi](screenshots/dashboard-hi.png)
+
+---
+
 ## 1. Yeh app kya karta hai?
 
 | Kaam | Kahan |
@@ -40,6 +62,8 @@ AI Copilot, GST, festival planning, aur **free mein online kaise daalna hai** (e
 | Diwali / Holi / Eid ke liye kya stock karna hai | **Insights & festivals** |
 | GST kitna banega (output tax vs ITC) | **Insights → GST** |
 | "aaj ki sale kitni hui?" jaise sawaal | **AI Copilot** |
+| Din ke end ka hisaab (galla, UPI, udhaar) | **Billing → Aaj ka hisaab** |
+| Jaldi expire hone wala maal | **Dashboard** / **Stock → Expiring soon** |
 
 ![Dashboard](screenshots/dashboard.png)
 
@@ -213,6 +237,14 @@ GST ke hisaab se bill khud sahi banta hai:
 - **Remind** → WhatsApp pe Hinglish reminder (UPI ID ke saath) — free.
 - **Collect** → paisa aaya toh amount + mode likho → **sabse purana bill pehle** clear hota hai.
 
+### Aaj ka hisaab (din ka end)
+
+**Billing → Aaj ka hisaab**: aaj ke bill, kul bikri, **galle mein kitna cash**, UPI/card, aaj kitna udhaar diya aur kitna
+purana udhaar aaya, sabse zyada bikne wala saaman. **Print** (chhota printer) ya **WhatsApp** pe bhejo. Tareekh badal
+ke purane din ka hisaab bhi dekh sakte ho. Copilot se bhi: *"aaj ka hisaab batao"*.
+
+![Aaj ka hisaab](screenshots/hisaab-hi.png)
+
 ---
 
 ## 7. Stock — products, GST, scan
@@ -221,7 +253,13 @@ GST ke hisaab se bill khud sahi banta hai:
 
 ![Stock](screenshots/inventory.png)
 
-- Product pe click → forecast chart, warehouse-wise stock, movements, GST/HSN, margin.
+- Product pe click → forecast chart, warehouse-wise stock, movements, GST/HSN, **barcode, unit, expiry**, margin.
+- **Barcode scanner:**
+  - **USB scanner** (₹1,000–1,500 wala) — kuch setup nahi: Billing ke search box mein scan karo, saaman bill mein aa jaata hai.
+  - **Phone / laptop camera** — Billing mein **Scan** button, ya product form mein barcode ke paas 📷 button.
+  - Naya saaman add karte waqt packet ka barcode scan karo — agli baar bill mein scan karte hi mil jaayega.
+- **Expiry:** har product ki expiry date daalo. 15 din ke andar expire hone wala maal **Dashboard** aur **Stock → Expiring soon**
+  mein laal dikhta hai — pehle becho ya supplier ko lautao. Copilot: *"kaunsa maal expire hone wala hai?"*
 - **Add product** — SKU, naam, cost, selling price. **GST optional**: khaali chhodo, AI naam se HSN + GST bhar dega; ya **Suggest with AI** dabao.
 - **Fill GST with AI** — jin products ka GST khaali hai sab ek click mein. AI wale rates pe "AI (check)" likha aata hai — ek baar CA se confirm kar lo.
 - **Import CSV** (preview ke baad import), **Export**.
@@ -252,7 +290,7 @@ Flow: **Draft → Approved → Ordered → Received** (receive karte hi stock ba
 | Tab | Kya milta hai |
 |---|---|
 | **Reorder plan** | Kya mangwana hai, kitna, kyun — ek click mein POs |
-| **🪔 Festival planner** | Navratri, Diwali, Chhath, Holi, Eid, Rakhi, Ganesh Chaturthi, Onam… kitna extra maal, **kab tak order karna hai** (supplier lead time ke hisaab se) → **Draft festival POs** |
+| **🪔 Festival planner** | **Aapke state ke festivals** — sab jagah wale (Diwali, Holi, Eid, Rakhi, Navratri…) + regional (Punjab: Lohri, Baisakhi, Gurpurab · Bengal/Assam: Durga Puja, Bihu · Bihar/UP: Chhath · Tamil Nadu: Pongal · Kerala: Onam · Maharashtra/Karnataka/Telangana: Ganesh Chaturthi, Gudi Padwa/Ugadi…). Kitna extra maal, **kab tak order karna hai** → **Draft festival POs** |
 | **GST** | Output tax vs input tax credit, slab-wise |
 | **Forecast & what-if** | "Demand 30% badhi toh?" — simulation |
 | **Smart markdowns** | Zyada pada maal — kitna discount do |
@@ -260,7 +298,7 @@ Flow: **Draft → Approved → Ordered → Received** (receive karte hi stock ba
 
 ![Festivals](screenshots/festivals.png)
 
-Dashboard pe bhi agla festival aur aaj ki billing dikhti hai.
+Dashboard pe bhi agla festival aur aaj ki billing dikhti hai. **State badalna:** Settings → Dukaan ki jaankari → State.
 
 ---
 
@@ -282,6 +320,8 @@ Dashboard pe bhi agla festival aur aaj ki billing dikhti hai.
 Sidebar → **AI Copilot**. Hindi / Hinglish / English — sab chalta hai:
 
 - `aaj ki sale kitni hui?`
+- `aaj ka hisaab batao`
+- `kaunsa maal expire hone wala hai?`
 - `kiska udhaar baaki hai?`
 - `Diwali ke liye kya stock karna hai?`
 - `kaunsa stock kam hai aur kya order karna hai?`
