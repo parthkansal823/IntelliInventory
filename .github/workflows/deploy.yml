@@ -1,11 +1,13 @@
-# CD: when CI passes on main, create/update the Hugging Face Spaces (free) with that exact commit.
+# CD - runs only after CI passes on main (or manually from the Actions tab).
 #
-# One-time setup - GitHub repo -> Settings -> Secrets and variables -> Actions -> "New repository secret":
-#   HF_TOKEN             (required) Hugging Face token with WRITE access: huggingface.co/settings/tokens
-#   For your real shop (optional - leave out to deploy only the demo):
-#   SHOP_DATABASE_URL    Neon Postgres URL (neon.tech, free)
-#   SHOP_ADMIN_EMAIL     your login email
-#   SHOP_ADMIN_PASSWORD  your login password
+# 1. Demo link (Render, free): nothing to do here - render.yaml sets autoDeployTrigger: checksPass, so Render
+#    redeploys by itself once these same CI checks are green.
+# 2. Your real shop (own server with Hermes + Postgres, e.g. Oracle Cloud Always Free): this job SSHes in and runs
+#    deploy/server/update.sh with the exact commit that passed CI.
+#    One-time: GitHub repo -> Settings -> Secrets and variables -> Actions -> New repository secret:
+#      SERVER_HOST     server IP address
+#      SERVER_USER     SSH user (Oracle Ubuntu: ubuntu)
+#      SERVER_SSH_KEY  the private key you use to SSH in (the whole file, including BEGIN/END lines)
 name: Deploy
 
 on:
@@ -17,29 +19,27 @@ on:
 
 concurrency:
   group: deploy
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  huggingface:
+  server:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    environment:
-      name: huggingface
+    environment: production
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: pip install --quiet "huggingface_hub>=0.25"
-      - name: Create / update Spaces
+      - name: Deploy the commit that passed CI
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_DEMO_SPACE: ${{ vars.HF_DEMO_SPACE }}
-          HF_SHOP_SPACE: ${{ vars.HF_SHOP_SPACE }}
-          SHOP_DATABASE_URL: ${{ secrets.SHOP_DATABASE_URL }}
-          SHOP_ADMIN_EMAIL: ${{ secrets.SHOP_ADMIN_EMAIL }}
-          SHOP_ADMIN_PASSWORD: ${{ secrets.SHOP_ADMIN_PASSWORD }}
-          SHOP_SECRET_KEY: ${{ secrets.SHOP_SECRET_KEY }}
-          GIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-        run: python deploy/huggingface/deploy.py
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          if [ -z "$SERVER_HOST" ] || [ -z "$SERVER_SSH_KEY" ]; then
+            echo "::notice::No SERVER_HOST / SERVER_SSH_KEY secrets - skipping the real-shop deploy (the Render demo deploys by itself)."
+            exit 0
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+            "${SERVER_USER:-ubuntu}@$SERVER_HOST" "bash ~/IntelliInventory/deploy/server/update.sh $SHA"
+          echo "### ✅ Real shop updated to \`${SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"

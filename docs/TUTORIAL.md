@@ -341,80 +341,85 @@ Asli AI (Hermes, Nous Research) chahiye toh — **free, aapke computer pe:**
 
 ## 15. Free deploy — 2 links
 
-**Hugging Face kya hai?** Ek free website jahan aap apna app online chala sakte ho ("Space" = ek online app).
-Free mein 2 CPU aur **16 GB RAM** milti hai — itni ki **Hermes AI bhi saath mein chalta hai**. Aapko server
-kuch nahi samajhna — **GitHub khud sab karega (CI/CD)**.
+> **Note:** Hugging Face ab Docker apps ke liye PRO (paid) maangta hai, isliye hum use **nahi** karte.
 
-### CI/CD kya karta hai (automatic)
+| Link | Kahan (free) | AI | Data |
+|---|---|---|---|
+| **Demo** — sabko dikhane ke liye | **Render** (card nahi chahiye) | offline planner (Render free mein sirf 512 MB RAM — Hermes fit nahi hota) | har deploy/restart pe fresh sample data |
+| **Asli dukaan** | **Oracle Cloud Always Free** server (2 CPU, 12 GB RAM) — ya **aapka apna PC** | **Hermes** (Ollama) ✅ | PostgreSQL, permanent |
+
+### CI/CD — sab automatic
 
 ```
-Aap code push karo (main)  →  CI: tests + lint + build  →  ✅ pass?  →  CD: Hugging Face pe deploy
-                                                            ❌ fail?  →  deploy nahi hoga (purana link chalta rahega)
+Aap main pe push karo → CI (tests, lint, build, Docker smoke test) → ✅ pass?
+                                                                     ├─→ Render demo khud update
+                                                                     └─→ Deploy workflow → aapka server (SSH) update
+                         ❌ fail? → kuch deploy nahi hota, purana version chalta rehta hai
 ```
 
-- **CI** (`.github/workflows/ci.yml`): har push pe backend tests, frontend tests, lint, build, Docker check.
-- **CD** (`.github/workflows/deploy.yml`): CI pass hone ke baad Spaces **khud banata / update karta hai** — usi commit ke saath.
+### A. Demo link — Render (5 minute, card nahi)
 
-### Setup — sirf ek baar (5 minute)
+1. https://render.com → **Get Started** → **GitHub se sign up** karo.
+2. Dashboard → **New +** → **Blueprint** → apna `IntelliInventory` repo choose karo (GitHub access maange toh do).
+3. Render `render.yaml` padh lega → **Apply** / **Deploy Blueprint** dabao.
+4. 5–10 minute mein build → link milega jaise `https://intelliinventory-demo.onrender.com`. Parth / Ananya se login.
 
-**Step 1 — Hugging Face account**
-https://huggingface.co/join pe free account banao (email verify kar lena).
+Bas! Ab `main` pe har push ke baad, **CI pass hone par** Render khud naya version daal dega.
+Free plan: 15 min koi na khole toh so jaata hai (agli baar ~1 min lagta hai), aur data reset hota rehta hai — demo ke liye theek.
 
-**Step 2 — Token banao**
-https://huggingface.co/settings/tokens → **Create new token** → type **Write** → naam `github-deploy` → **Create** →
-token copy karo (`hf_...` se shuru hota hai).
+### B. Asli dukaan — Oracle Cloud Always Free (Hermes ke saath)
 
-**Step 3 — Token GitHub mein daalo**
-GitHub pe apna repo kholo → **Settings** → left side **Secrets and variables → Actions** → **New repository secret**:
-- Name: `HF_TOKEN`
-- Secret: jo token copy kiya → **Add secret**
+Oracle hamesha-free server deta hai (2 ARM CPU, 12 GB RAM). Sign-up pe **card verification** hota hai (paisa nahi katta).
+Card nahi dena? Neeche **C** dekho.
 
-**Step 4 — Deploy chalao**
-Repo → **Actions** tab → left mein **Deploy** → **Run workflow** → **Run workflow** (green button).
-(Aage se har `main` push pe yeh khud chalega.)
+**1. Server banao**
+- https://www.oracle.com/cloud/free/ → **Start for free** → account banao (Home region: **India West (Mumbai)** ya **India South (Hyderabad)**).
+- Console → **Compute → Instances → Create instance**
+  - Image: **Ubuntu 24.04** · Shape: **Ampere (VM.Standard.A1.Flex)** → **2 OCPU, 12 GB**
+  - **Add SSH keys → Generate a key pair for me** → **private key download** karo (sambhal ke rakho!)
+  - **Create**. Public IP note karo.
+- Ports kholo: Instance → **Subnet → Default Security List → Add Ingress Rules** → Source `0.0.0.0/0`, TCP, port `80`; phir ek aur port `443`.
 
-**Step 5 — Link kholo**
-Workflow khatam hone pe uske summary mein link dikhega, jaise:
-`https://aapka-username-intelliinventory-demo.hf.space`
-Pehli baar Space build hone mein **10–15 minute** lagte hain (Hermes model download hota hai). Space page pe
-"Building" → "Running" dikhega. Phir Parth / Ananya se login karo. **Demo link ready!** 🎉
+**2. Ek command se install**
+Apne computer se SSH karo (Windows PowerShell mein bhi chalta hai):
+```bash
+ssh -i path/to/downloaded-key.key ubuntu@AAPKA_IP
+```
+Server pe yeh paste karo:
+```bash
+curl -fsSL https://raw.githubusercontent.com/parthkansal823/IntelliInventory/main/deploy/server/setup.sh | bash
+```
+Email + password poochega (yahi aapka login). 10–15 minute mein ready, aur end mein link dikhega jaise
+`https://129-154-10-20.sslip.io` — **free HTTPS**, domain kharidna nahi padta.
 
-### Asli dukaan ka link (optional)
+**3. Auto-deploy (CI/CD) chalu karo**
+GitHub repo → **Settings → Secrets and variables → Actions → New repository secret** — teen secrets:
 
-Data permanent rakhne ke liye free database chahiye — **Neon**:
+| Name | Value |
+|---|---|
+| `SERVER_HOST` | server ka public IP |
+| `SERVER_USER` | `ubuntu` |
+| `SERVER_SSH_KEY` | download ki hui private key file ka **poora text** (Notepad mein kholke copy — BEGIN se END tak) |
 
-1. https://neon.tech → free sign up → **New project** (region: Singapore ya jo paas ho) →
-   **Connection string** copy karo (`postgresql://...` wala).
-2. GitHub → Settings → Secrets and variables → Actions → teen aur secrets banao:
+Test: Repo → **Actions → Deploy → Run workflow**. Green ✅ = server update ho gaya.
+Ab `main` pe har push → CI pass → server khud update. Data Postgres mein safe rehta hai.
 
-   | Name | Value |
-   |---|---|
-   | `SHOP_DATABASE_URL` | Neon wali connection string |
-   | `SHOP_ADMIN_EMAIL` | aapka login email |
-   | `SHOP_ADMIN_PASSWORD` | aapka strong password |
+### C. Bina card — apne PC / shop ke computer pe + free online link
 
-3. Actions → **Deploy** → **Run workflow**.
+1. App chalao (`scripts\start-windows.bat`) aur Hermes ke liye Ollama (section 12).
+2. **Cloudflare Tunnel** (free, account bhi nahi chahiye): https://github.com/cloudflare/cloudflared/releases se `cloudflared` download karo, phir:
+   ```bash
+   cloudflared tunnel --url http://localhost:8000
+   ```
+   Ek link milega jaise `https://abc-xyz.trycloudflare.com` — phone se bhi khulega. (PC band = link band; restart pe link badalta hai.)
 
-Ab do Spaces banenge:
-
-| Link | Kya hai | Data |
-|---|---|---|
-| `…-intelliinventory-demo.hf.space` | **Public demo** — sabko dikhao | sample, har restart pe fresh |
-| `…-intelliinventory-shop.hf.space` | **Aapki asli dukaan** — private | Neon mein, permanent |
-
-Asli dukaan wala Space **private** hai — Hugging Face pe login karke hi khulta hai (aapke account se). Sabke liye
-kholna ho toh Space → Settings → **Make public** (app ka apna login phir bhi lagega).
-
-Naam badalne hain? GitHub → Settings → Secrets and variables → Actions → **Variables** tab →
-`HF_DEMO_SPACE` = `aapka-username/meri-dukaan-demo`, `HF_SHOP_SPACE` = `aapka-username/meri-dukaan`.
+   Docker hai toh: `deploy/server` mein `.env` banao (`.env.example` copy), `COMPOSE_PROFILES=tunnel` rakho, `docker compose up -d`,
+   link: `docker compose logs tunnel | findstr trycloudflare`.
 
 ### Dhyan rakhein
-- Free Space **48 ghante koi na khole toh so jaata hai** — link kholte hi 1–2 min mein jaag jaata hai.
-- Free CPU pe Hermes jawab dene mein kuch second leta hai; offline planner turant (Copilot header se badlo).
-- Deploy fail? Repo → **Actions** → laal ❌ wale run pe click → error dikhega. Sabse common: `HF_TOKEN` "Read"
-  type ka hai — **Write** wala banao.
-- Space khud se (bina GitHub ke) bhi bana sakte ho: Docker Space banao aur `deploy/huggingface/` ki `Dockerfile`
-  + `README.md` upload kar do.
+- Deploy fail? Repo → **Actions** → laal ❌ run → error padho. Common: `SERVER_SSH_KEY` adhoori copy hui, ya ports 80/443 nahi khule.
+- Server pe logs: `cd ~/IntelliInventory/deploy/server && sudo docker compose logs -f app`
+- Backup (Oracle): `sudo docker compose exec postgres pg_dump -U intelli intelliinventory > backup.sql`
 
 ---
 

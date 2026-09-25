@@ -1,0 +1,71 @@
+# Your real shop on ONE server - app + Hermes AI (Ollama) + PostgreSQL (+ HTTPS). Free on Oracle Cloud Always Free
+# (2 ARM CPUs, 12 GB RAM) or on any Linux box / your own PC with Docker.
+#   first time:  bash deploy/server/setup.sh        updates: bash deploy/server/update.sh   (the Deploy workflow runs it)
+# Profiles (set COMPOSE_PROFILES in .env):
+#   https  -> Caddy with automatic Let's Encrypt HTTPS on $DOMAIN (e.g. 1-2-3-4.sslip.io - free, no domain needed)
+#   tunnel -> Cloudflare quick tunnel: free https://<random>.trycloudflare.com link, no open ports (URL changes on restart)
+name: intelliinventory
+
+services:
+  app:
+    build: { context: ../.., dockerfile: Dockerfile }
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://intelli:${POSTGRES_PASSWORD}@postgres:5432/intelliinventory
+      OLLAMA_URL: http://ollama:11434
+      HERMES_MODEL: ${HERMES_MODEL:-hermes3:3b}
+    ports: ["${APP_PORT:-8000}:8000"]
+    volumes: [app-data:/data]
+    depends_on:
+      postgres: { condition: service_healthy }
+      ollama: { condition: service_started }
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: intelli
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: intelliinventory
+    volumes: [pg:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelli -d intelliinventory"]
+      interval: 5s
+      retries: 30
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment: { OLLAMA_KEEP_ALIVE: 24h }
+    volumes: [ollama:/root/.ollama]
+
+  # one-shot: downloads the Hermes model the first time (~2 GB for hermes3:3b), then exits
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on: [ollama]
+    environment: { OLLAMA_HOST: "ollama:11434" }
+    entrypoint: ["sh", "-c", "sleep 5 && ollama pull ${HERMES_MODEL:-hermes3:3b}"]
+    restart: "no"
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: [https]
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment: { DOMAIN: "${DOMAIN:-localhost}" }
+    volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy:/data]
+    depends_on: [app]
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: [tunnel]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://app:8000
+    depends_on: [app]
+
+volumes:
+  app-data:
+  pg:
+  ollama:
+  caddy:

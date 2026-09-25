@@ -1,0 +1,25 @@
+# Render Blueprint - the free public DEMO link (render.com, no credit card).
+# Render -> New -> Blueprint -> pick this repo -> Apply. It redeploys by itself after GitHub CI passes on main.
+# Free plan: 512 MB RAM (too small for Hermes, so the demo uses the built-in offline AI planner), sleeps after
+# 15 min without visitors (first visit then takes ~1 min), and data resets on each deploy/restart - fine for a demo.
+services:
+  - type: web
+    name: intelliinventory-demo
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: DEMO_MODE
+        value: "true"
+      - key: AI_PROVIDER
+        value: offline
+      - key: OLLAMA_AUTODETECT
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: INTEGRATION_TOKEN
+        generateValue: true

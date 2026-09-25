@@ -123,23 +123,25 @@ Production build without Docker: `make build`, then `make api`. FastAPI serves t
 
 ## Free deployment (demo link + your real shop) — CI/CD
 
-**Hugging Face Spaces** (free CPU: 2 vCPU / 16 GB RAM) runs the whole app *and* Hermes (Ollama + `hermes3:3b`) in one
-container. Deployment is fully automated:
-
 ```
-push to main → CI (tests, lint, build, Docker check) → ✅ → Deploy workflow → Hugging Face Spaces (that exact commit)
+push to main → CI (tests, lint, build, Docker smoke test) → ✅ → Render demo redeploys (autoDeployTrigger: checksPass)
+                                                            └→ Deploy workflow → your server over SSH (that exact commit)
 ```
 
-1. Add the GitHub secret **`HF_TOKEN`** (a Hugging Face *write* token). That's it for the public demo:
-   `https://<you>-intelliinventory-demo.hf.space`.
-2. For your real shop add `SHOP_DATABASE_URL` (free [Neon](https://neon.tech) Postgres), `SHOP_ADMIN_EMAIL` and
-   `SHOP_ADMIN_PASSWORD` → a private `https://<you>-intelliinventory-shop.hf.space` whose data survives restarts.
-3. Actions → **Deploy** → *Run workflow* (later pushes deploy automatically).
+| | Where (free) | AI | Data |
+|---|---|---|---|
+| **Demo link** | [Render](https://render.com) free web service via `render.yaml` (no card) | offline planner (512 MB RAM) | resets on restart |
+| **Your shop** | Oracle Cloud Always Free (2 ARM CPU / 12 GB) or any Linux box / your PC | **Hermes** via Ollama | PostgreSQL |
 
-`deploy/huggingface/deploy.py` creates the Spaces, sets their variables/secrets and uploads the Dockerfile pinned to
-the commit that passed CI. Step-by-step with pictures of where to click: [tutorial §15](docs/TUTORIAL.md#15-free-deploy--2-links).
-Free Spaces sleep after 48 hours without visitors and wake on the next visit. Forgot the admin password?
-`uv run python -m app.cli reset-password <email> <new>`.
+- **Demo:** Render → New → Blueprint → pick this repo → Apply.
+- **Shop:** on a fresh Ubuntu server run
+  `curl -fsSL https://raw.githubusercontent.com/parthkansal823/IntelliInventory/main/deploy/server/setup.sh | bash`
+  (Docker, app + Ollama/Hermes + Postgres + Caddy auto-HTTPS on `<ip>.sslip.io`). Then add GitHub secrets
+  `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY` and every green CI run on `main` deploys it.
+- **No card / no server:** run it on your PC and share it with `cloudflared tunnel --url http://localhost:8000`.
+
+Step-by-step with screenshots-level detail: [tutorial §15](docs/TUTORIAL.md#15-free-deploy--2-links). Forgot the admin
+password? `uv run python -m app.cli reset-password <email> <new>`.
 
 ## AI providers: free first
 
@@ -243,7 +245,7 @@ Configuration lives in [`.env.example`](.env.example). Every value is optional.
 **Ops:**
 - Docker (multi-stage) and docker-compose, with optional Ollama and Postgres
 - GitHub Actions CI
-- Hugging Face Spaces deploy (Docker + Ollama), GitHub Action rebuilds
+- CI/CD: GitHub Actions → Render (demo) and SSH deploy of a Docker Compose stack (app + Ollama + Postgres + Caddy)
 
 ## License
 MIT

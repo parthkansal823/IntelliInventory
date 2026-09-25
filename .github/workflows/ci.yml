@@ -38,7 +38,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t intelliinventory .
-      - name: Lint the Hugging Face Space image
-        run: docker build --check deploy/huggingface
-      - name: Deploy script dry run
-        run: HF_TOKEN=dry HF_USER=ci SHOP_DATABASE_URL=postgres://x SHOP_ADMIN_EMAIL=a@b.in SHOP_ADMIN_PASSWORD=x python3 deploy/huggingface/deploy.py --dry-run
+      - name: Check the server stack (compose + scripts)
+        run: |
+          cp deploy/server/.env.example deploy/server/.env
+          docker compose -f deploy/server/docker-compose.yml config -q
+          COMPOSE_PROFILES=tunnel docker compose -f deploy/server/docker-compose.yml config -q
+          bash -n deploy/server/setup.sh && bash -n deploy/server/update.sh
+      - name: Smoke test the image (demo mode, like Render)
+        run: |
+          docker run -d --name smoke -p 8000:10000 -e PORT=10000 -e DEMO_MODE=true -e AI_PROVIDER=offline intelliinventory
+          for i in $(seq 1 60); do curl -fsS localhost:8000/api/health && break; sleep 2; done
+          curl -fsS localhost:8000/api/system/public | grep -q '"demo_mode":true'
+          curl -fsS localhost:8000/ | grep -qi '<div id="root"'
+          docker logs smoke | tail -20
