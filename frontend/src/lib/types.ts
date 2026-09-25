@@ -540,6 +540,7 @@ export interface SupplierDue {
   bills: SupplierBill[]
   last_payment: { amount: number; mode: string; date: string } | null
   upi_link: string | null
+  payments?: { id: number; amount: number; mode: string; reference: string | null; date: string }[]
 }
 export interface Payables {
   summary: { total: number; overdue: number; due_this_week: number; suppliers: number }

@@ -269,6 +269,7 @@ Bank** → **Save return**.
 - Customer ka us bill pe udhaar baaki ho toh pehle **udhaar mein se ghat-ta** hai, bacha paisa wapas.
 - Poora bill galat ho toh ab bhi **Cancel bill** (manager). ₹2,000 se bada cash refund sirf manager.
 - GST report aur sales register (CSV) mein credit note apne aap minus hota hai.
+- Saari wapsi ek jagah: **All bills → Returns** (credit note par click = asli bill khulta hai).
 
 ![Return / credit note](screenshots/return.png)
 
@@ -295,9 +296,13 @@ Upar **"1 bill(s) to sync"** dikhega. Internet aate hi (ya har 30 second) bill *
 aur asli bill number milta hai — do baar sync ho tab bhi bill ek hi baar banta hai. Products aur customers ki list
 bhi aakhri baar wali yaad rehti hai, isliye billing screen offline khulti hai.
 
+- Offline bill ki **parchi (receipt)**: save hote hi message mein **Print** dabao, ya upar "bills to sync" list mein 🖨️ —
+  "PROVISIONAL RECEIPT · OFF-1" chhapti hai (asli bill number sync ke baad).
+- Internet band ho tab bhi **likh ke bill** (`2 atta 1 maggi`) chalta hai — phone khud match kar leta hai.
+
 ### Customer history
 
-**Khata** mein customer ke naam pe click → kitne bill, kul kitna kharida, kya sabse zyada leta hai, points, udhaar.
+**Khata** mein customer ke naam pe click (ya naya bill banate waqt phone daalo → **History**) → kitne bill, kul kitna kharida, kya sabse zyada leta hai, points, udhaar.
 Copilot se: *"Parth ki history dikhao"*.
 
 ---
@@ -344,6 +349,10 @@ Flow: **Draft → Approved → Ordered → Received** (receive karte hi stock ba
   (Settings → Catalog → supplier, default 15 din).
 - Bina PO ka maal aaya? **Add purchase bill** se supplier ka bill number + amount daalo.
 - **Pay** → Cash / UPI (supplier ke UPI ka QR) / Bank / Cheque — paisa **sabse purane bill** mein pehle lagta hai.
+- **History** → us supplier ke saare bill (chukta + baaki) aur diye gaye paise. **Show paid suppliers** se chukta
+  supplier bhi dikhte hain.
+- Credit days badalne ho: **Settings → Catalog → Suppliers → ✏️** (credit days, UPI, GSTIN, phone sab badal sakte ho).
+- Poora paisa dene pe us supplier ka **alert apne aap band** ho jaata hai.
 - Dashboard pe **"Dena baaki"** card, aur 2 din pehle **alert**. Copilot se: *"supplier ko kitna dena hai?"*
 
 ![Supplier khata](screenshots/supplier-khata.png)

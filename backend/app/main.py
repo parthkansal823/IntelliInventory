@@ -29,7 +29,7 @@ from app.mcp_server import mcp
 from app.models import Alert, ist_today
 from app.plugins import load_plugins
 from app.security import AdminUser
-from app.seed import DEMO_ACCOUNTS, ensure_production_setup, seed_demo
+from app.seed import DEMO_ACCOUNTS, ensure_production_setup, seed_demo, upgrade_demo
 from app.services.billing import BillingError, business_profile
 from app.services.inventory import InventoryError
 from app.services.scheduler import scheduler_loop
@@ -45,6 +45,8 @@ def _bootstrap() -> None:
     with session_scope() as s:
         if settings.should_seed_demo:
             seeded = seed_demo(s)
+            if not seeded:
+                upgrade_demo(s)  # older demo DBs: add supplier khata + loyalty demo data
         else:
             ensure_production_setup(s)
             seeded = False

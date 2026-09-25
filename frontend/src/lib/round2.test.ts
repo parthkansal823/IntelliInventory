@@ -67,3 +67,17 @@ describe('offline bill queue', () => {
     expect(isNetworkError(new ApiError(400, 'x'))).toBe(false)
   })
 })
+
+describe('parseLocal (offline quick-type)', () => {
+  const p = (id: number, sku: string, name: string) => ({ id, sku, name, is_active: true }) as unknown as import('./types').ProductRow
+  const products = [p(1, 'ATA-101', 'Chakki Fresh Atta 10kg'), p(2, 'SNK-405', 'Instant Noodles (Pack of 4)'), p(3, 'ATA-105', 'Sugar 1kg'), p(4, 'ATA-106', 'Iodised Salt 1kg')]
+  it('understands numbers before or after, Hindi words and separators', async () => {
+    const { parseLocal } = await import('./quicktype')
+    const pick = (t: string) => parseLocal(t, products).items.map((i) => [i.product.sku, i.quantity])
+    expect(pick('2 atta 1 maggi')).toEqual([['ATA-101', 2], ['SNK-405', 1]])
+    expect(pick('cheeni do packet, namak ek')).toEqual([['ATA-105', 2], ['ATA-106', 1]])
+    expect(pick('atta 3')).toEqual([['ATA-101', 3]])
+    expect(pick('4 ATA-106')).toEqual([['ATA-106', 4]])
+    expect(parseLocal('ek hawai jahaz', products).unmatched).toEqual(['hawai jahaz'])
+  })
+})

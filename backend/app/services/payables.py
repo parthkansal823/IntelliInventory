@@ -149,6 +149,8 @@ def pay_supplier(
         session.add(bill)
     payment = SupplierPayment(supplier_id=supplier_id, amount=amount, mode=mode, reference=reference, created_by=actor)
     session.add(payment)
+    if round(owed - amount, 2) <= 0:
+        _resolve_alerts(session, supplier.name)
     session.commit()
     result = {
         "supplier_id": supplier_id,
@@ -203,6 +205,17 @@ def supplier_dues(session: Session, supplier_id: int | None = None, include_clea
                 "upi_link": india.upi_link(sup.upi_id, sup.name, balance, "Payment") if sup.upi_id and balance > 0 else None,
             }
         )
+        if supplier_id:  # one supplier: full history of payments too
+            pays = session.exec(
+                select(SupplierPayment)
+                .where(SupplierPayment.supplier_id == sup.id)
+                .order_by(SupplierPayment.created_at.desc(), SupplierPayment.id.desc())
+                .limit(50)
+            ).all()
+            rows[-1]["payments"] = [
+                {"id": p.id, "amount": p.amount, "mode": p.mode, "reference": p.reference, "date": p.created_at.isoformat()}
+                for p in pays
+            ]
     return sorted(rows, key=lambda r: (-r["overdue"], -r["balance"]))
 
 
@@ -230,6 +243,21 @@ def supplier_payments_by_mode(session: Session, start: datetime, end: datetime) 
     return out
 
 
+def _resolve_alerts(session: Session, supplier_name: str) -> int:
+    """Close the open "Pay <supplier> ..." reminders (the caller commits)."""
+    open_alerts = session.exec(
+        select(Alert).where(
+            Alert.kind == "payable_due",
+            Alert.resolved == False,  # noqa: E712
+            Alert.message.startswith(f"Pay {supplier_name} "),
+        )
+    ).all()
+    for alert in open_alerts:
+        alert.resolved, alert.resolved_at = True, utcnow()
+        session.add(alert)
+    return len(open_alerts)
+
+
 def raise_due_alerts(session: Session, within_days: int = 2) -> list[dict]:
     """Daily: one alert per supplier with bills due within `within_days` (or overdue)."""
     today = ist_today()
@@ -239,7 +267,12 @@ def raise_due_alerts(session: Session, within_days: int = 2) -> list[dict]:
         for a in session.exec(select(Alert).where(Alert.kind == "payable_due", Alert.resolved == False))  # noqa: E712
     }
     raised = []
-    for row in supplier_dues(session):
+    dues = supplier_dues(session)
+    still_due = {row["name"] for row in dues}
+    for sup in session.exec(select(Supplier)):
+        if sup.name not in still_due:  # paid off since the reminder was raised
+            _resolve_alerts(session, sup.name)
+    for row in dues:
         due = round(sum(b["balance"] for b in row["bills"] if date.fromisoformat(b["due_date"]) <= limit), 2)
         if due <= 0:
             continue

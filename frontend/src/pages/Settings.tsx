@@ -1,4 +1,4 @@
-import { Bot, Building2, Check, DatabaseBackup, Keyboard, Landmark, Monitor, Moon, Plug, Plus, RefreshCw, Sparkles, Sun, Users } from 'lucide-react'
+import { Bot, Building2, Check, DatabaseBackup, Keyboard, Pencil, Landmark, Monitor, Moon, Plug, Plus, RefreshCw, Sparkles, Sun, Users } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Badge, Button, Card, CardHeader, CodeBlock, Dialog, Field, Input, PageHeader, Select, Skeleton, Switch, Table, Tabs, TabsContent, TabsList, TabsTrigger, Td, Th } from '@/components/ui'
@@ -272,24 +272,41 @@ function Catalog() {
   const { can } = useAuth()
   const [dialog, setDialog] = useState<null | 'warehouse' | 'supplier' | 'category'>(null)
   const [form, setForm] = useState<Record<string, string>>({})
+  const [editId, setEditId] = useState<number | null>(null)
+  const editSupplier = (id: number) => {
+    const s = supplierInfo.get(id)
+    if (!s) return
+    setForm({ name: s.name, email: s.email ?? '', phone: s.phone ?? '', gstin: s.gstin ?? '', state: s.state ?? '', upi: s.upi_id ?? '', lead: String(s.lead_time_days), credit: String(s.credit_days ?? 15), rating: String(s.rating) })
+    setEditId(id)
+    setDialog('supplier')
+  }
+  const closeDialog = () => {
+    setDialog(null)
+    setEditId(null)
+    setForm({})
+  }
   const set = (k: string) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const create = useAction(
     () =>
       dialog === 'warehouse'
         ? post('/api/warehouses', { code: form.code, name: form.name, location: form.location, state: form.state || null })
         : dialog === 'supplier'
-          ? post('/api/suppliers', {
-              name: form.name,
-              email: form.email || null,
-              phone: form.phone || null,
-              gstin: form.gstin || null,
-              state: form.state || null,
-              upi_id: form.upi || null,
-              lead_time_days: Number(form.lead || 7),
-              credit_days: Number(form.credit || 15),
-            })
+          ? (() => {
+              const body = {
+                name: form.name,
+                email: form.email || null,
+                phone: form.phone || null,
+                gstin: form.gstin || null,
+                state: form.state || null,
+                upi_id: form.upi || null,
+                lead_time_days: Number(form.lead || 7),
+                credit_days: Number(form.credit || 15),
+                rating: Number(form.rating || 4),
+              }
+              return editId ? patch(`/api/suppliers/${editId}`, body) : post('/api/suppliers', body)
+            })()
           : post('/api/categories', { name: form.name, color: form.color || '#6366f1' }),
-    { success: t('Created'), invalidate: [keys.warehouses, keys.suppliers, keys.suppliersScores, keys.categories], onSuccess: () => { setDialog(null); setForm({}) } },
+    { success: editId ? t('Saved') : t('Created'), invalidate: [keys.warehouses, keys.suppliers, keys.suppliersScores, keys.categories, ['payables']], onSuccess: closeDialog },
   )
 
   return (
@@ -310,11 +327,11 @@ function Catalog() {
       <Card className="lg:col-span-2">
         <CardHeader title={t('Suppliers')} action={can('manager') && <Button size="sm" variant="secondary" onClick={() => setDialog('supplier')}><Plus className="size-3.5" /> {t('Add')}</Button>} />
         <Table>
-          <thead><tr><Th>{t('Supplier')}</Th><Th>{t('Contact')}</Th><Th>{t('GSTIN · State')}</Th><Th className="text-right">{t('Lead time')}</Th><Th className="text-right">{t('Rating')}</Th><Th>{t('Grade')}</Th></tr></thead>
-          <tbody>{suppliers.data?.map((s) => <tr key={s.id}><Td className="font-medium">{s.name}{supplierInfo.get(s.id)?.upi_id && <div className="font-mono text-xs text-subtle">UPI {supplierInfo.get(s.id)?.upi_id}</div>}</Td><Td className="text-xs text-muted">{s.email}<br />{s.phone}</Td><Td className="text-xs"><div className="font-mono">{supplierInfo.get(s.id)?.gstin ?? '—'}</div><div className="text-muted">{supplierInfo.get(s.id)?.state}</div></Td><Td className="text-right tabular-nums">{s.promised_lead_time}d</Td><Td className="text-right tabular-nums">{s.rating.toFixed(1)}</Td><Td><Badge tone={s.grade === 'A' ? 'good' : s.grade === 'B' ? 'info' : 'warning'}>{s.grade}</Badge></Td></tr>)}</tbody>
+          <thead><tr><Th>{t('Supplier')}</Th><Th>{t('Contact')}</Th><Th>{t('GSTIN · State')}</Th><Th className="text-right">{t('Lead time')}</Th><Th className="text-right">{t('Credit days')}</Th><Th className="text-right">{t('Rating')}</Th><Th>{t('Grade')}</Th><Th className="w-10" /></tr></thead>
+          <tbody>{suppliers.data?.map((s) => <tr key={s.id}><Td className="font-medium">{s.name}{supplierInfo.get(s.id)?.upi_id && <div className="font-mono text-xs text-subtle">UPI {supplierInfo.get(s.id)?.upi_id}</div>}</Td><Td className="text-xs text-muted">{s.email}<br />{s.phone}</Td><Td className="text-xs"><div className="font-mono">{supplierInfo.get(s.id)?.gstin ?? '—'}</div><div className="text-muted">{supplierInfo.get(s.id)?.state}</div></Td><Td className="text-right tabular-nums">{s.promised_lead_time}d</Td><Td className="text-right tabular-nums">{supplierInfo.get(s.id)?.credit_days ?? '—'}d</Td><Td className="text-right tabular-nums">{s.rating.toFixed(1)}</Td><Td><Badge tone={s.grade === 'A' ? 'good' : s.grade === 'B' ? 'info' : 'warning'}>{s.grade}</Badge></Td><Td>{can('manager') && <Button size="icon" variant="ghost" className="size-8" aria-label={t('Edit {name}', { name: s.name })} onClick={() => editSupplier(s.id)}><Pencil className="size-3.5" /></Button>}</Td></tr>)}</tbody>
         </Table>
       </Card>
-      <Dialog open={!!dialog} onOpenChange={(o) => !o && setDialog(null)} title={`Add ${dialog}`} footer={<Button onClick={() => create.mutate(undefined)} loading={create.isPending}>{t('Create')}</Button>}>
+      <Dialog open={!!dialog} onOpenChange={(o) => !o && closeDialog()} title={editId ? t('Edit supplier') : t({ warehouse: 'Add warehouse', supplier: 'Add supplier', category: 'Add category' }[dialog ?? 'category'])} footer={<Button onClick={() => create.mutate(undefined)} loading={create.isPending}>{editId ? t('Save') : t('Create')}</Button>}>
         <div className="grid gap-3">
           {dialog === 'warehouse' && <Field label={t('Code')}><Input value={form.code ?? ''} onChange={set('code')} placeholder={t('WEST')} /></Field>}
           <Field label={t('Name')}><Input value={form.name ?? ''} onChange={set('name')} /></Field>

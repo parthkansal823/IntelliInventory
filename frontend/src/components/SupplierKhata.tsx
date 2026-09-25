@@ -1,24 +1,27 @@
 /** Supplier khata (payables): what the shop owes each wholesaler, due dates, pay by cash / UPI QR / bank. */
-import { AlertTriangle, CalendarClock, Factory, IndianRupee, Plus, QrCode, Wallet } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle, CalendarClock, Factory, History, IndianRupee, Plus, QrCode, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Badge, Button, Card, CardHeader, Dialog, EmptyState, Field, Input, Select, Skeleton, Table, Td, Th } from '@/components/ui'
+import { Badge, Button, Card, CardHeader, Dialog, EmptyState, Field, Input, Select, Skeleton, Switch, Table, Td, Th } from '@/components/ui'
 import { useAction, usePayables, useSuppliers } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
-import { post } from '@/lib/api'
+import { get, post } from '@/lib/api'
 import { qrDataUrl, upiLink } from '@/lib/billing'
 import { tr, useT } from '@/lib/i18n'
 import type { SupplierDue } from '@/lib/types'
 import { cn, money, shortDate } from '@/lib/utils'
 
-const INVALIDATE = [['payables'], ['billing']]
+const INVALIDATE = [['payables'], ['billing'], ['alerts']]
 const PAY_MODES = ['cash', 'upi', 'bank', 'cheque'] as const
 const MODE_LABEL: Record<string, string> = { cash: 'Cash', upi: 'UPI', bank: 'Bank', cheque: 'Cheque' }
 
 export function SupplierKhata() {
   const t = useT()
-  const data = usePayables().data
+  const [showPaid, setShowPaid] = useState(false)
+  const data = usePayables(showPaid).data
   const { can } = useAuth()
   const [paying, setPaying] = useState<SupplierDue | null>(null)
+  const [history, setHistory] = useState<SupplierDue | null>(null)
   const [adding, setAdding] = useState(false)
   const s = data?.summary
   const cards = s
@@ -43,7 +46,12 @@ export function SupplierKhata() {
           title={t('Supplier khata — whom you have to pay')}
           description={t('Received purchase orders are added here automatically, due after the supplier’s credit days.')}
           icon={<Factory className="size-4" />}
-          action={can('manager') && <Button size="sm" variant="secondary" onClick={() => setAdding(true)}><Plus className="size-4" /> {t('Add purchase bill')}</Button>}
+          action={
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-muted"><Switch checked={showPaid} onCheckedChange={setShowPaid} label={t('Show paid suppliers')} /> {t('Show paid suppliers')}</label>
+              {can('manager') && <Button size="sm" variant="secondary" onClick={() => setAdding(true)}><Plus className="size-4" /> {t('Add purchase bill')}</Button>}
+            </div>
+          }
         />
         {!data ? <Skeleton className="m-5 h-40" /> : !data.suppliers.length ? <EmptyState title={t('Nothing to pay 🎉')} description={t('All supplier bills are paid.')} /> : (
           <Table>
@@ -64,7 +72,12 @@ export function SupplierKhata() {
                   <Td>{r.next_due ? shortDate(r.next_due) : '—'}</Td>
                   <Td className="text-right">{r.overdue ? <Badge tone="critical"><AlertTriangle className="size-3" /> {money(r.overdue)}</Badge> : <span className="text-subtle">—</span>}</Td>
                   <Td className="text-right font-semibold tabular-nums">{money(r.balance)}</Td>
-                  <Td className="text-right">{can('manager') && <Button size="sm" onClick={() => setPaying(r)}><Wallet className="size-3.5" /> {t('Pay')}</Button>}</Td>
+                  <Td className="text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <Button size="sm" variant="ghost" onClick={() => setHistory(r)}><History className="size-3.5" /> {t('History')}</Button>
+                      {can('manager') && r.balance > 0 && <Button size="sm" onClick={() => setPaying(r)}><Wallet className="size-3.5" /> {t('Pay')}</Button>}
+                    </div>
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -73,7 +86,43 @@ export function SupplierKhata() {
       </Card>
       {paying && <PayDialog due={paying} onClose={() => setPaying(null)} />}
       {adding && <AddBillDialog onClose={() => setAdding(false)} />}
+      {history && <HistoryDialog due={history} onClose={() => setHistory(null)} />}
     </div>
+  )
+}
+
+/** Every bill (paid and open) and every payment for one supplier. */
+function HistoryDialog({ due, onClose }: { due: SupplierDue; onClose: () => void }) {
+  const t = useT()
+  const data = useQuery({ queryKey: ['payables', 'supplier', due.supplier_id], queryFn: () => get<SupplierDue>(`/api/payables/${due.supplier_id}`) }).data
+  return (
+    <Dialog open wide onOpenChange={(o) => !o && onClose()} title={t('{name} — history', { name: due.name })} description={data ? `${t('To pay')}: ${money(data.balance)} · ${t('{n} days credit', { n: data.credit_days })}` : undefined}>
+      {!data ? <Skeleton className="h-40" /> : (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <div className="mb-2 text-sm font-medium">{t('Purchase bills')}</div>
+            {!data.bills.length ? <p className="text-sm text-muted">—</p> : data.bills.map((b) => (
+              <div key={b.id} className="flex items-center justify-between gap-2 border-b border-border py-1.5 text-sm">
+                <span><span className="font-mono text-xs">{b.bill_no ?? `#${b.id}`}</span> <span className="text-xs text-subtle">{shortDate(b.bill_date)} → {shortDate(b.due_date)}</span></span>
+                <span className="text-right tabular-nums">
+                  {money(b.amount)}
+                  <span className={cn('block text-xs', b.balance ? (b.overdue ? 'text-critical' : 'text-warning') : 'text-good')}>{b.balance ? `${money(b.balance)} ${t('to pay')}` : t('Paid')}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <div className="mb-2 text-sm font-medium">{t('Payments made')}</div>
+            {!data.payments?.length ? <p className="text-sm text-muted">—</p> : data.payments.map((p) => (
+              <div key={p.id} className="flex justify-between border-b border-border py-1.5 text-sm">
+                <span>{t(MODE_LABEL[p.mode] ?? p.mode)}{p.reference ? ` · ${p.reference}` : ''} <span className="text-xs text-subtle">{shortDate(p.date)}</span></span>
+                <span className="tabular-nums">{money(p.amount)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Dialog>
   )
 }
 

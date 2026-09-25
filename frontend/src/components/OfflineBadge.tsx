@@ -1,8 +1,10 @@
 /** Header badge for bills saved on this device while offline; syncs them by itself when the server is back. */
 import { useQueryClient } from '@tanstack/react-query'
-import { CloudUpload, RefreshCw, Trash2, WifiOff } from 'lucide-react'
+import { CloudUpload, Printer, RefreshCw, Trash2, WifiOff } from 'lucide-react'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
+import { useBillingProfile } from '@/hooks/queries'
+import { printOfflineReceipt } from '@/lib/billing'
 import { removeBill, retryBill, syncQueue, useOfflineQueue } from '@/lib/offline'
 import { tr, useT } from '@/lib/i18n'
 import { money, dateTime } from '@/lib/utils'
@@ -22,6 +24,7 @@ export function OfflineBadge() {
   const queue = useOfflineQueue()
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine)
   const qc = useQueryClient()
+  const profile = useBillingProfile().data
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -79,6 +82,7 @@ export function OfflineBadge() {
                   {b.error && <div className="text-xs font-medium text-critical">{b.error}</div>}
                 </div>
                 <div className="flex shrink-0 gap-1">
+                  <Button size="icon" variant="ghost" className="size-8" aria-label={t('Print')} onClick={() => printOfflineReceipt(b, profile)}><Printer className="size-4" /></Button>
                   {b.error && <Button size="sm" variant="secondary" onClick={() => { retryBill(b.client_ref); void sync(true) }}>{t('Retry')}</Button>}
                   <Button size="icon" variant="ghost" className="size-8" aria-label={t('Delete')} onClick={() => { if (window.confirm(t('Delete this offline bill? It will not be saved.'))) removeBill(b.client_ref) }}><Trash2 className="size-4" /></Button>
                 </div>

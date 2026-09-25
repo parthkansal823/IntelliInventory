@@ -4,13 +4,14 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Badge, Button, Card, CardHeader, Dialog, EmptyState, Field, Input, PageHeader, Segmented, Select, Skeleton, Switch, Table, Tabs, TabsContent, TabsList, TabsTrigger, Td, Th, type Tone } from '@/components/ui'
-import { useAction, useBillingProfile, useBillingSummary, useCustomerHistory, useCustomers, useDayClose, useDues, useGstSettings, useInvoice, useInvoices, useOffers, useProducts } from '@/hooks/queries'
+import { useAction, useBillingProfile, useBillingSummary, useCreditNotes, useCustomerHistory, useCustomers, useDayClose, useDues, useGstSettings, useInvoice, useInvoices, useOffers, useProducts } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner'
 import { download, post } from '@/lib/api'
-import { creditNoteWhatsApp, duesReminder, invoiceWhatsApp, previewBill, printCreditNote, printInvoice, qrDataUrl, upiLink, type DraftLine } from '@/lib/billing'
+import { creditNoteWhatsApp, duesReminder, invoiceWhatsApp, previewBill, printCreditNote, printInvoice, printOfflineReceipt, qrDataUrl, upiLink, type DraftLine } from '@/lib/billing'
 import { applyOffers, pointsFor } from '@/lib/offers'
 import { isNetworkError, queueBill, type QueuedBill } from '@/lib/offline'
+import { parseLocal } from '@/lib/quicktype'
 import { createRecognition, voiceLang, whatsappLink } from '@/lib/speech'
 import type { CreditNote, CustomerDue, DayClose, InvoiceDetail, InvoiceStatus, ParsedOrder, PaymentMode, ProductRow } from '@/lib/types'
 import { cn, dateTime, longDate, money, number, shortDate } from '@/lib/utils'
@@ -100,6 +101,7 @@ function NewBill({ onSaved }: { onSaved: (id: number) => void }) {
   const [noOffers, setNoOffers] = useState(false)
   const [redeem, setRedeem] = useState('')
   const [listening, setListening] = useState(false)
+  const [historyOf, setHistoryOf] = useState<number | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const recognition = useRef<ReturnType<typeof createRecognition>>(null)
   const uiLang = useLang()
@@ -162,7 +164,15 @@ function NewBill({ onSaved }: { onSaved: (id: number) => void }) {
       if (r.unmatched.length) toast.warning(tr('Not found: {words}', { words: r.unmatched.join(', ') }))
       if (!r.items.length && !r.unmatched.length) toast.error(tr('Could not understand. Try: "2 atta 1 maggi"'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      if (!isNetworkError(e) || !products.data) {
+        toast.error(e instanceof Error ? e.message : String(e))
+        return
+      }
+      // server unreachable: simpler matching on this device keeps the counter running
+      const r = parseLocal(text, products.data)
+      r.items.forEach((i) => add(i.product, i.quantity))
+      if (r.items.length) toast.success(tr('Added: {items}', { items: r.items.map((i) => `${i.product.name} × ${i.quantity}`).join(', ') }))
+      if (r.unmatched.length) toast.warning(tr('Not found: {words}', { words: r.unmatched.join(', ') }))
     }
   }
   const toggleMic = () => {
@@ -238,18 +248,24 @@ function NewBill({ onSaved }: { onSaved: (id: number) => void }) {
       } catch (e) {
         if (!isNetworkError(e)) throw e
         // no internet / server down: keep the bill on this device, it syncs by itself later
-        return { ...queueBill(payload, payable, customer.name || tr('Walk-in customer')), offline: true as const }
+        const receiptLines = offered.lines.map((l, i) => ({ name: l.name, quantity: l.quantity, total: bill.lines[i]?.total ?? 0 }))
+        return { ...queueBill(payload, payable, customer.name || tr('Walk-in customer'), receiptLines), offline: true as const }
       }
     },
     {
       success: (r) =>
         'offline' in r
-          ? tr('No internet — bill {n} saved on this device. It will sync automatically.', { n: r.number })
+          ? '' // shown below with a Print button
           : `${r.number} saved · ${money(r.total)}${r.balance ? ` · ${money(r.balance)} on khata` : ''}${r.points_earned ? ` · +${r.points_earned} ${tr('points')}` : ''}`,
       invalidate: INVALIDATE,
       onSuccess: (r) => {
         reset()
-        if (!('offline' in r)) onSaved(r.id)
+        if ('offline' in r) {
+          toast.success(tr('No internet — bill {n} saved on this device. It will sync automatically.', { n: r.number }), {
+            action: { label: tr('Print'), onClick: () => printOfflineReceipt(r, profile) },
+            duration: 10_000,
+          })
+        } else onSaved(r.id)
       },
     },
   )
@@ -393,8 +409,10 @@ function NewBill({ onSaved }: { onSaved: (id: number) => void }) {
                   <div className="rounded-lg bg-surface-2 px-3 py-2 text-xs">
                     {t('Returning customer')}{known.balance ? <> · <span className="font-medium text-critical">{money(known.balance)} {t('udhaar baaki')}</span></> : ` · ${t('no dues')}`}
                     {loyalty && <> · <Star className="inline size-3 text-warning" /> {known.points ?? 0} {t('points')}</>}
+                    {' · '}<button type="button" onClick={() => setHistoryOf(known.id)} className="font-medium text-brand hover:underline">{t('History')}</button>
                   </div>
                 )}
+                {historyOf && <CustomerHistoryDialog id={historyOf} onClose={() => setHistoryOf(null)} />}
                 {loyalty && known && (known.points ?? 0) > 0 && (
                   <Field label={t('Use points (1 point = {v})', { v: money(loyalty.point_value) })} hint={redeemTooSmall ? t('At least {n} points', { n: loyalty.min_redeem }) : undefined}>
                     <div className="flex gap-2">
@@ -502,14 +520,14 @@ const Row = ({ label, value }: { label: string; value: string }) => (
 
 function InvoiceList({ onOpen }: { onOpen: (id: number) => void }) {
   const t = useT()
-  const [status, setStatus] = useState<'all' | 'due' | 'paid' | 'cancelled'>('all')
+  const [status, setStatus] = useState<'all' | 'due' | 'paid' | 'cancelled' | 'returns'>('all')
   const [q, setQ] = useState('')
-  const invoices = useInvoices(status, q)
+  const invoices = useInvoices(status === 'returns' ? 'all' : status, q)
   const { can } = useAuth()
   return (
     <Card>
       <div className="flex flex-wrap items-center gap-2 p-4">
-        <Segmented size="sm" value={status} onChange={setStatus} options={[{ value: 'all', label: t('All') }, { value: 'due', label: t('Udhaar / due') }, { value: 'paid', label: t('Paid') }, { value: 'cancelled', label: t('Cancelled') }]} />
+        <Segmented size="sm" value={status} onChange={setStatus} options={[{ value: 'all', label: t('All') }, { value: 'due', label: t('Udhaar / due') }, { value: 'paid', label: t('Paid') }, { value: 'cancelled', label: t('Cancelled') }, { value: 'returns', label: t('Returns') }]} />
         <div className="relative ml-auto">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Bill no., name or phone')} className="w-64 pl-9" />
@@ -520,7 +538,7 @@ function InvoiceList({ onOpen }: { onOpen: (id: number) => void }) {
           </Button>
         )}
       </div>
-      {invoices.isLoading ? <Skeleton className="m-5 h-48" /> : !invoices.data?.length ? <EmptyState title={t('No bills found')} /> : (
+      {status === 'returns' ? <CreditNoteList onOpen={onOpen} /> : invoices.isLoading ? <Skeleton className="m-5 h-48" /> : !invoices.data?.length ? <EmptyState title={t('No bills found')} /> : (
         <Table>
           <thead><tr><Th>{t('Bill no.')}</Th><Th>{t('Date')}</Th><Th>{t('Customer')}</Th><Th>{t('Mode')}</Th><Th className="text-right">{t('Total')}</Th><Th className="text-right">{t('Balance')}</Th><Th>{t('Status')}</Th></tr></thead>
           <tbody>
@@ -539,6 +557,31 @@ function InvoiceList({ onOpen }: { onOpen: (id: number) => void }) {
         </Table>
       )}
     </Card>
+  )
+}
+
+/** Sales returns: every credit note, newest first; click to open the original bill. */
+function CreditNoteList({ onOpen }: { onOpen: (id: number) => void }) {
+  const t = useT()
+  const notes = useCreditNotes()
+  if (notes.isLoading) return <Skeleton className="m-5 h-48" />
+  if (!notes.data?.length) return <EmptyState icon={<Undo2 className="size-6" />} title={t('No returns yet')} description={t('Open a bill and use "Return items" when a customer brings something back.')} />
+  return (
+    <Table>
+      <thead><tr><Th>{t('Credit note')}</Th><Th>{t('Date')}</Th><Th>{t('Customer')}</Th><Th>{t('Items')}</Th><Th>{t('Refund')}</Th><Th className="text-right">{t('Total')}</Th></tr></thead>
+      <tbody>
+        {notes.data.map((n) => (
+          <tr key={n.id} className="cursor-pointer hover:bg-surface-2" onClick={() => onOpen(n.invoice_id)}>
+            <Td className="font-mono text-xs">{n.number}</Td>
+            <Td className="text-muted">{dateTime(n.created_at)}</Td>
+            <Td>{n.customer_name}{n.reason && <div className="text-xs text-subtle">{n.reason}</div>}</Td>
+            <Td className="text-sm">{n.lines.map((l) => `${l.name} × ${l.quantity}`).join(', ')}</Td>
+            <Td className="text-sm">{n.refunded ? `${money(n.refunded)} · ${t(MODE_LABEL[n.refund_mode])}` : t('taken off the udhaar')}</Td>
+            <Td className="text-right font-medium tabular-nums">{money(n.total)}</Td>
+          </tr>
+        ))}
+      </tbody>
+    </Table>
   )
 }
 

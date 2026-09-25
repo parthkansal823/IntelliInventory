@@ -8,6 +8,7 @@ import type {
   BillingSummary,
   BusinessProfile,
   Customer,
+  CreditNote,
   CustomerDue,
   CustomerHistory,
   OffersConfig,
@@ -140,7 +141,8 @@ export function useAction<TArgs, TResult = unknown>(
   return useMutation({
     mutationFn: fn,
     onSuccess: (result) => {
-      if (opts.success) toast.success(typeof opts.success === 'function' ? opts.success(result) : opts.success)
+      const message = typeof opts.success === 'function' ? opts.success(result) : opts.success
+      if (message) toast.success(message) // an empty message means the caller shows its own toast
       opts.invalidate?.forEach((key) => qc.invalidateQueries({ queryKey: key }))
       opts.onSuccess?.(result)
     },
@@ -189,6 +191,7 @@ export const useInvoices = (status = 'all', q = '') =>
 export const useInvoice = (id: number | null) =>
   useQuery({ queryKey: ['invoice', id], queryFn: () => get<InvoiceDetail>(`/api/invoices/${id}`), enabled: !!id })
 export const useDayClose = (day: string) => useQuery({ queryKey: ['billing', 'day-close', day], queryFn: () => get<DayClose>(`/api/billing/day-close?day=${day}`) })
+export const useCreditNotes = () => useQuery({ queryKey: ['billing', 'credit-notes'], queryFn: () => get<CreditNote[]>('/api/credit-notes') })
 export const useOffers = () => useQuery({ queryKey: ['billing', 'offers'], queryFn: () => cachedGet<OffersConfig>('/api/billing/offers'), staleTime: 60_000 })
 export const useCustomerHistory = (id: number | null) =>
   useQuery({ queryKey: ['customers', 'history', id], queryFn: () => get<CustomerHistory>(`/api/customers/${id}`), enabled: !!id })

@@ -495,7 +495,9 @@ def seed_payables(session: Session) -> None:
     today = utcnow().astimezone(IST).date()
     by_name = {s.name: s for s in session.exec(select(Supplier))}
     for name, bill_no, days_ago, credit, amount, paid in DEMO_SUPPLIER_BILLS:
-        supplier = by_name[name]
+        supplier = by_name.get(name)
+        if supplier is None:  # renamed / deleted in this demo database
+            continue
         supplier.credit_days = credit
         bill_date = today - timedelta(days=days_ago)
         session.add(
@@ -521,3 +523,20 @@ def seed_payables(session: Session) -> None:
             )
         session.add(supplier)
     session.commit()
+
+
+def upgrade_demo(session: Session) -> bool:
+    """Demo databases created before the supplier khata / loyalty existed get that demo data too (idempotent)."""
+    from app.models import Customer, SupplierBill
+
+    if session.exec(select(func.count()).select_from(SupplierBill)).one():
+        return False
+    if not session.exec(select(func.count()).select_from(Product)).one():
+        return False
+    seed_payables(session)
+    parth = session.exec(select(Customer).where(Customer.name == "Parth")).first()
+    if parth is not None and not parth.points:
+        parth.points = 120
+        session.add(parth)
+        session.commit()
+    return True

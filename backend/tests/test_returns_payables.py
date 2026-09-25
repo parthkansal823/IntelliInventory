@@ -114,6 +114,38 @@ def test_payable_due_alerts(session):
     assert raise_due_alerts(session) == []  # no duplicate alerts
 
 
+def test_paying_a_supplier_closes_the_reminder_and_keeps_history(client, manager, session):
+    from app.models import Alert
+    from app.services.payables import raise_due_alerts
+
+    raise_due_alerts(session)
+    alerts = client.get("/api/alerts", headers=manager).json()
+    reminder = next(a for a in alerts if a["kind"] == "payable_due")
+    name = reminder["message"].removeprefix("Pay ").split(" ₹")[0]
+    row = next(r for r in client.get("/api/payables", headers=manager).json()["suppliers"] if r["name"] == name)
+    client.post("/api/supplier-payments", json={"supplier_id": row["supplier_id"], "amount": row["balance"]}, headers=manager)
+    session.expire_all()
+    assert session.get(Alert, reminder["id"]).resolved
+    detail = client.get(f"/api/payables/{row['supplier_id']}", headers=manager).json()
+    assert detail["balance"] == 0 and detail["payments"][0]["amount"] == row["balance"]
+    assert all(b["balance"] == 0 for b in detail["bills"])  # single-supplier view lists paid bills too
+
+
+def test_older_demo_databases_get_the_supplier_khata(session):
+    from sqlmodel import delete, select
+
+    from app.models import SupplierBill, SupplierPayment
+    from app.seed import upgrade_demo
+
+    assert upgrade_demo(session) is False  # already has bills: nothing to do
+    session.exec(delete(SupplierPayment))
+    session.exec(delete(SupplierBill))
+    session.commit()
+    assert upgrade_demo(session) is True
+    assert len(session.exec(select(SupplierBill)).all()) == 4
+    assert upgrade_demo(session) is False
+
+
 def test_apply_offers_vectors():
     cfg = {
         "enabled": True,

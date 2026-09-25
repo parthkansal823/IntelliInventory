@@ -1,5 +1,6 @@
 /** Billing helpers: live bill preview (same maths as the server), WhatsApp texts, UPI links and printable invoices. */
 import QRCode from 'qrcode'
+import type { QueuedBill } from './offline'
 import type { BusinessProfile, CreditNote, CustomerDue, InvoiceDetail } from './types'
 import { money } from './utils'
 
@@ -162,6 +163,25 @@ export function printCreditNote(note: CreditNote, inv: InvoiceDetail) {
   <table>${rows}<tr><td>Taxable value</td><td class="r">${money(note.taxable)}</td></tr>${tax}<tr class="g"><td>Return value</td><td class="r">${money(note.total)}</td></tr></table>
   <div>${note.refunded ? `Refunded ${money(note.refunded)} by ${esc(note.refund_mode.toUpperCase())}` : 'Adjusted against the balance due'}</div>
   ${note.reason ? `<div class="m">Reason: ${esc(note.reason)}</div>` : ''}
+  <script>window.onload=()=>window.print()</script></body></html>`)
+  w.document.close()
+}
+
+/** Receipt for a bill made offline: provisional number now, the real bill number comes when it syncs. */
+export function printOfflineReceipt(bill: QueuedBill, shop: BusinessProfile | undefined) {
+  const w = window.open('', '_blank', 'width=420,height=700')
+  if (!w) return
+  const date = new Date(bill.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' })
+  const rows = bill.lines.map((l) => `<tr><td>${esc(l.name)} × ${l.quantity}</td><td class="r">${money(l.total)}</td></tr>`).join('')
+  w.document.write(`<!doctype html><html><head><title>${esc(bill.number)}</title><style>
+    @page{size:80mm auto;margin:3mm}body{width:74mm;margin:0;font:12px/1.4 ui-monospace,monospace;color:#111}h1{font-size:15px;margin:0;text-align:center}.c{text-align:center}.m{color:#666;font-size:11px}
+    table{width:100%;border-collapse:collapse;margin:8px 0}td{padding:3px 0;border-bottom:1px dashed #999}.r{text-align:right}.g td{font-weight:700;border-top:1px solid #111}.p{border:1px dashed #111;padding:4px;margin:6px 0;text-align:center}
+  </style></head><body>
+  <h1>${esc(shop?.name ?? '')}</h1>${shop?.address ? `<div class="c m">${esc(shop.address)}</div>` : ''}${shop?.gstin ? `<div class="c m">GSTIN ${esc(shop.gstin)}</div>` : ''}
+  <div class="p"><b>PROVISIONAL RECEIPT · ${esc(bill.number)}</b><br/><span class="m">Made offline · final bill number after sync</span></div>
+  <div class="m">${date} · ${esc(bill.customer)}</div>
+  <table>${rows}<tr class="g"><td>Total</td><td class="r">${money(bill.total)}</td></tr></table>
+  <p class="c">Dhanyavaad! Phir padhariye 🙏</p>
   <script>window.onload=()=>window.print()</script></body></html>`)
   w.document.close()
 }

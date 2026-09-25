@@ -13,6 +13,7 @@ export interface QueuedBill {
   created_at: string
   total: number
   customer: string
+  lines: { name: string; quantity: number; total: number }[] // for the provisional receipt
   payload: Record<string, unknown>
   error?: string
 }
@@ -55,10 +56,10 @@ export const useOfflineQueue = () =>
 
 const newRef = () => (typeof globalThis.crypto?.randomUUID === 'function' && globalThis.isSecureContext ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
-export function queueBill(payload: Record<string, unknown>, total: number, customer: string): QueuedBill {
+export function queueBill(payload: Record<string, unknown>, total: number, customer: string, lines: QueuedBill['lines'] = []): QueuedBill {
   const seq = read<number>(SEQ_KEY, 0) + 1
   write(SEQ_KEY, seq)
-  const bill: QueuedBill = { client_ref: newRef(), number: `OFF-${seq}`, created_at: new Date().toISOString(), total, customer, payload }
+  const bill: QueuedBill = { client_ref: newRef(), number: `OFF-${seq}`, created_at: new Date().toISOString(), total, customer, lines, payload }
   setQueue([...queue, bill])
   return bill
 }
