@@ -6,21 +6,21 @@ from app.services.inventory import InventoryError
 
 
 def test_negative_stock_is_rejected(session):
-    product = inventory.find_product(session, "ELC-1004")  # seeded as out of stock
+    product = inventory.find_product(session, "MSL-303")  # seeded as out of stock
     with pytest.raises(InventoryError, match="Insufficient stock"):
         inventory.adjust_stock(session, product.id, -1, type=MovementType.SALE)
 
 
 def test_find_product_is_case_insensitive(session):
-    assert inventory.find_product(session, "acc-2002").sku == "ACC-2002"
-    assert inventory.find_product(session, "Braided USB-C Cable 2m").sku == "ACC-2002"
+    assert inventory.find_product(session, "snk-404").sku == "SNK-404"
+    assert inventory.find_product(session, "Chocolate Bar 50g").sku == "SNK-404"
 
 
 def test_transfer_moves_stock_between_warehouses(session):
-    product = inventory.find_product(session, "ACC-2002")
+    product = inventory.find_product(session, "SNK-404")
     before = {w["code"]: w["quantity"] for w in inventory.stock_by_warehouse(session, product.id)}
     source = max(before, key=before.get)
-    target = next(code for code in ("MAIN", "NORTH", "SOUTH") if code != source)
+    target = next(code for code in ("MAIN", "GODOWN") if code != source)
     total = inventory.on_hand(session, product.id)
     inventory.transfer_stock(session, product.id, 5, source, target)
     after = {w["code"]: w["quantity"] for w in inventory.stock_by_warehouse(session, product.id)}
@@ -30,7 +30,7 @@ def test_transfer_moves_stock_between_warehouses(session):
 
 
 def test_purchase_order_lifecycle(session):
-    product = inventory.find_product(session, "SPT-6003")
+    product = inventory.find_product(session, "HMC-701")
     po = purchasing.create_po(session, [(product, 7)], created_by="test")
     assert po.status == POStatus.DRAFT
     assert po.lines[0].quantity == max(7, product.min_order_qty)  # MOQ enforced

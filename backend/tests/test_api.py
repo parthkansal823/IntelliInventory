@@ -40,8 +40,8 @@ def test_core_endpoints(client, manager):
 
 
 def test_scan_and_inventory_errors(client, manager):
-    res = client.post("/api/inventory/scan", json={"code": "ii:ACC-2002", "action": "receive", "quantity": 4}, headers=manager)
-    assert res.status_code == 200 and res.json()["product"]["sku"] == "ACC-2002"
+    res = client.post("/api/inventory/scan", json={"code": "ii:SNK-404", "action": "receive", "quantity": 4}, headers=manager)
+    assert res.status_code == 200 and res.json()["product"]["sku"] == "SNK-404"
     bad = client.post("/api/inventory/scan", json={"code": "NOPE-9999"}, headers=manager)
     assert bad.status_code == 400 and "not found" in bad.json()["detail"]
 
@@ -80,11 +80,11 @@ async def test_mcp_server_exposes_guarded_tools(client):
         summary = json.loads((await mcp.call_tool("get_inventory_summary", {})).content[0].text)
         assert summary["kpis"]["total_skus"] > 30
         pending = json.loads(
-            (await mcp.call_tool("adjust_stock", {"sku": "ACC-2002", "quantity_delta": -1, "reason": "mcp"})).content[0].text
+            (await mcp.call_tool("adjust_stock", {"sku": "SNK-404", "quantity_delta": -1, "reason": "mcp"})).content[0].text
         )
         assert pending["status"] == "pending_approval"
         blocked = json.loads(
-            (await mcp.call_tool("adjust_stock", {"sku": "ACC-2002", "quantity_delta": -99999, "reason": "x"})).content[0].text
+            (await mcp.call_tool("adjust_stock", {"sku": "SNK-404", "quantity_delta": -99999, "reason": "x"})).content[0].text
         )
         assert blocked.get("blocked")
 
@@ -95,7 +95,11 @@ def test_autopilot_drafts_po_when_stock_runs_low(client, manager):
 
     products = client.get("/api/products", headers=manager).json()
     open_skus = {ln["sku"] for po in client.get("/api/purchase-orders?status=open", headers=manager).json() for ln in po["lines"]}
-    target = next(p for p in products if p["status"] == "healthy" and p["sku"] not in open_skus and p["avg_daily_demand"] > 2)
+    target = next(
+        p
+        for p in products
+        if p["status"] == "healthy" and p["sku"] not in open_skus and p["avg_daily_demand"] > 2 and p["lead_time_days"] >= 5
+    )
     assert client.patch("/api/automation/settings", json={"autopilot_enabled": True}, headers=manager).status_code == 200
     try:
         drop = target["on_hand"] - max(1, target["reorder_point"] // 2)

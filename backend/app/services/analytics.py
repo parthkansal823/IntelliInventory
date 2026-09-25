@@ -36,12 +36,12 @@ from app.models import (
     utcnow,
 )
 from app.money import inr
-from app.services.india import festival_multiplier
+from app.services.india import festival_multiplier, festivals_for
 from app.services.inventory import on_hand_map
 from app.services.purchasing import on_order_map
 
 SERVICE_LEVEL_Z = 1.65  # ~95% cycle service level
-ORDERING_COST = 4000.0  # ₹ per purchase order
+ORDERING_COST = 300.0  # ₹ per order for a local shop (call + transport); drives EOQ
 HOLDING_RATE = 0.25  # annual holding cost as a fraction of unit cost
 HISTORY_DAYS = 90
 
@@ -294,10 +294,11 @@ def product_forecast(session: Session, product_id: int, horizon: int = 30) -> di
     product = session.get(Product, product_id)
     category = session.get(Category, product.category_id) if product and product.category_id else None
     projection, festivals = [], {}
+    regional = festivals_for()  # the shop's state decides which regional festivals apply
     for i, (f, lo, hi) in enumerate(zip(fc.forecast, fc.lower, fc.upper, strict=True)):
         day = today + timedelta(days=i + 1)
         # Festival-aware: lift the statistical forecast inside Indian festival buying windows.
-        mult, festival = festival_multiplier(category.name if category else None, day)
+        mult, festival = festival_multiplier(category.name if category else None, day, regional)
         point = {
             "date": day.isoformat(),
             "forecast": round(f * mult, 2),
@@ -617,3 +618,38 @@ def markdown_suggestions(session: Session, clear_days: int = 60) -> list[dict]:
             }
         )
     return sorted(out, key=lambda r: -r["capital_tied"])
+
+
+def expiring_products(session: Session, days: int = 15) -> list[dict]:
+    """Stock that expires within `days` (or already expired), soonest first - sell, discount or return it."""
+    from app.models import ist_today
+
+    today = ist_today()
+    on_hand = on_hand_map(session)
+    rows = []
+    for p in session.exec(
+        select(Product).where(
+            Product.is_active, Product.expiry_date.is_not(None), Product.expiry_date <= today + timedelta(days=days)
+        )
+    ):
+        qty = on_hand.get(p.id, 0)
+        if qty <= 0:
+            continue
+        left = (p.expiry_date - today).days
+        rows.append(
+            {
+                "product_id": p.id,
+                "sku": p.sku,
+                "name": p.name,
+                "expiry_date": p.expiry_date.isoformat(),
+                "days_left": left,
+                "on_hand": qty,
+                "value": round(qty * p.unit_cost, 2),
+                "action": "Remove from shelf / return to supplier"
+                if left < 0
+                else "Sell first - keep in front, offer a discount"
+                if left <= 3
+                else "Keep in front of the shelf",
+            }
+        )
+    return sorted(rows, key=lambda r: r["days_left"])

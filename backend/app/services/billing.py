@@ -45,7 +45,7 @@ BILL_OF_SUPPLY_NOTE = "Bill of supply - seller not registered under GST / GST no
 
 PROFILE_KEY = "business.profile"
 PROFILE_DEFAULTS = {
-    "name": "My Shop",
+    "name": "Kansal General Store",
     "address": "",
     "gstin": "",
     "state": "",
@@ -579,6 +579,50 @@ def _ist_midnight(day: date) -> datetime:
     return datetime.combine(day, time(0), tzinfo=IST)
 
 
+def day_close(session: Session, day: date | None = None) -> dict:
+    """ "Aaj ka hisaab": one day's bills, money received by mode, udhaar given / collected and top items."""
+    day = day or utcnow().astimezone(IST).date()
+    start, end = _ist_midnight(day), _ist_midnight(day + timedelta(days=1))
+    bills = session.exec(
+        select(Invoice).where(Invoice.created_at >= start, Invoice.created_at < end, Invoice.status != InvoiceStatus.CANCELLED)
+    ).all()
+    cancelled = session.exec(
+        select(func.count()).select_from(Invoice).where(Invoice.cancelled_at >= start, Invoice.cancelled_at < end)
+    ).one()
+    payments = session.exec(
+        select(Payment, Invoice)
+        .join(Invoice, Invoice.id == Payment.invoice_id)
+        .where(Payment.created_at >= start, Payment.created_at < end, Invoice.status != InvoiceStatus.CANCELLED)
+    ).all()
+    by_mode: dict[str, float] = {}
+    collected_old = 0.0
+    for pay, inv in payments:
+        by_mode[pay.mode] = round(by_mode.get(pay.mode, 0.0) + pay.amount, 2)
+        if inv.created_at < start:
+            collected_old += pay.amount
+    items: dict[str, dict] = {}
+    for inv in bills:
+        for line in inv.lines:
+            row = items.setdefault(line.sku, {"sku": line.sku, "name": line.name, "quantity": 0, "amount": 0.0})
+            row["quantity"] += line.quantity
+            row["amount"] = round(row["amount"] + line.total, 2)
+    sales = round(sum(i.total for i in bills), 2)
+    return {
+        "date": day.isoformat(),
+        "bills": len(bills),
+        "cancelled": cancelled,
+        "sales": sales,
+        "tax": round(sum(i.tax for i in bills), 2),
+        "discount": round(sum(i.discount for i in bills), 2),
+        "received": by_mode,
+        "received_total": round(sum(by_mode.values()), 2),
+        "cash_in_drawer": by_mode.get("cash", 0.0),
+        "udhaar_given": round(sum(i.total - i.amount_paid for i in bills), 2),
+        "udhaar_collected": round(collected_old, 2),
+        "top_items": sorted(items.values(), key=lambda r: -r["amount"])[:10],
+    }
+
+
 def billing_summary(session: Session, days: int = 30) -> dict:
     """Sales from bills: today, the period, payment-mode split, daily series and money still to collect."""
     today = utcnow().astimezone(IST).date()
@@ -661,15 +705,15 @@ def list_customers(session: Session, q: str | None = None, limit: int = 50) -> l
 def demo_profile() -> dict:
     """Business profile used by the public demo."""
     return {
-        "name": "Shubh Laabh Retail (Demo)",
-        "address": "Shop 12, Linking Road, Bandra West, Mumbai 400050",
-        "gstin": india.make_gstin("Maharashtra", "AAECS4821R"),
-        "state": "Maharashtra",
-        "phone": "+91 98200 11223",
-        "email": "billing@shubhlaabh.example.in",
-        "upi_id": "shubhlaabh@okaxis",
-        "invoice_prefix": "INV",
-        "terms": "Goods once sold will not be taken back or exchanged. Subject to Mumbai jurisdiction.",
+        "name": "Kansal General Store",
+        "address": "Main Bazaar, Kharar, Distt. SAS Nagar (Mohali), Punjab 140301",
+        "gstin": india.make_gstin("Punjab", "AAKFK4821R"),
+        "state": "Punjab",
+        "phone": "+91 98140 11223",
+        "email": "kansalgeneralstore@example.in",
+        "upi_id": "kansalstore@okaxis",
+        "invoice_prefix": "KGS",
+        "terms": "Goods once sold will not be taken back. Subject to Kharar jurisdiction. Dhanyavaad, phir padhariye!",
     }
 
 

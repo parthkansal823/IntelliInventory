@@ -70,7 +70,7 @@ export default function Scan() {
           <form onSubmit={submit} className="flex gap-2 border-t border-border p-3">
             <div className="relative flex-1">
               <Keyboard className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle" />
-              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="SKU or code, e.g. ELC-1001" className="pl-9" />
+              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Barcode, SKU or name, e.g. ATA-105" className="pl-9" />
             </div>
             <Button type="submit" loading={scan.isPending}>Go</Button>
           </form>

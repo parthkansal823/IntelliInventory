@@ -25,7 +25,7 @@ from app.money import inr
 
 from .base import AssistantMessage, Provider, ProviderEvent, ToolCall
 
-SKU_RE = re.compile(r"\b([A-Za-z]{3}-\d{4})\b")
+SKU_RE = re.compile(r"\b([A-Za-z]{3}-\d{3,4})\b")
 PO_RE = re.compile(r"\b(PO-\d{4}-\d{4})\b", re.IGNORECASE)
 NUM_RE = re.compile(r"(?<![\w-])(\d{1,6})(?![\w-])")
 
@@ -55,6 +55,8 @@ def find_sku(text: str) -> str | None:
 # Common Hinglish phrasings mapped onto English intent keywords, so the free planner
 # understands e.g. "kya order karna hai?" or "kaunsa stock kam hai?".
 HINGLISH = [
+    (r"\b(aaj ka hisaab|aaj ka hisab|hisaab|hisab|day close|closing|galla band)\b", " dayclose "),
+    (r"\b(expire|expiry|expired|kharab hone|kharab ho|khatam hone wala maal)\b", " expiry "),
     (r"\b(aaj ki sale|aaj ki bikri|aaj ka collection|aaj ka galla|bikri kitni|sale kitni)\b", " billing "),
     (r"\b(udhar|udhaar|baaki paise|paise baaki|kitna lena hai)\b", " udhaar "),
     (r"\b(kam|kami|thoda bacha)\b", " low "),
@@ -247,6 +249,16 @@ class OfflineProvider(Provider):
                 return [_call("list_suppliers")], ""
             if can("delegate"):
                 return delegate("procurement", "supplier performance")
+        if _has(text, "dayclose"):
+            if can("day_close"):
+                return [_call("day_close")], ""
+            if can("delegate"):
+                return delegate("analyst", "day-end closing")
+        if _has(text, "expiry"):
+            if can("expiring_products"):
+                return [_call("expiring_products", days=15)], ""
+            if can("delegate"):
+                return delegate("analyst", "expiring stock")
         invoice_no = re.search(r"\b[a-z0-9]{1,4}/\d{2}-\d{2}/\d{1,5}\b", text)
         if invoice_no and can("get_invoice"):
             return [_call("get_invoice", number=invoice_no.group(0).upper())], ""
@@ -748,6 +760,25 @@ class OfflineProvider(Provider):
             "_Rates change from time to time — confirm with your CA. Slabs can be updated in Settings → Business._"
         )
 
+    def _r_day_close(self, d: dict) -> str:
+        modes = ", ".join(f"{m.upper()} {self._money(v)}" for m, v in d["received"].items()) or "—"
+        top = ", ".join(f"{i['name']} ×{i['quantity']}" for i in d["top_items"][:5]) or "—"
+        return (
+            f"### 🧾 Aaj ka hisaab — {_d(d['date'], year=True)}\n"
+            f"- Bills: **{d['bills']}** · Sale: **{self._money(d['sales'])}** (GST {self._money(d['tax'])})\n"
+            f"- Received: {modes} · **Cash in galla: {self._money(d['cash_in_drawer'])}**\n"
+            f"- Udhaar diya: {self._money(d['udhaar_given'])} · Purana udhaar aaya: {self._money(d['udhaar_collected'])}\n"
+            f"- Top items: {top}"
+        )
+
+    def _r_expiring_products(self, d: list) -> str:
+        if not d:
+            return "✅ Agle 15 din mein koi maal expire nahi ho raha."
+        rows = [{**r, "when": "expired" if r["days_left"] < 0 else f"{r['days_left']} din"} for r in d]
+        return f"### ⏰ {len(d)} item(s) jaldi expire ho rahe hain\n\n" + self._table(
+            rows, [("Item", "name"), ("Stock", "on_hand"), ("Expiry", "when"), ("Kya karein", "action")]
+        )
+
     def _r_billing_summary(self, d: dict) -> str:
         modes = ", ".join(f"{m.upper()} {self._money(v)}" for m, v in d["collected_by_mode"].items()) or "—"
         p = d["period"]
@@ -860,7 +891,7 @@ class OfflineProvider(Provider):
             "I'm running in **offline mode** — free, no API key needed. I can:\n"
             "- 📊 give an inventory **summary** or **briefing**\n"
             "- 🛒 show **what to reorder** and **draft purchase orders**\n"
-            "- 📈 **forecast** demand for a product, or run a **what-if** (e.g. *what if demand for ELC-1001 rises 30%?*)\n"
+            "- 📈 **forecast** demand for a product, or run a **what-if** (e.g. *what if demand for ATA-105 rises 30%?*)\n"
             "- 🔎 detect **anomalies**, show **movements**, **ABC** classes, **margins**, **supplier** scorecards\n"
             "- 💯 score overall inventory **health**, and suggest **markdowns** for overstock\n"
             "- 🪔 plan **festival** stock (Diwali, Dhanteras, Holi, Eid…) and estimate **GST** payable\n"

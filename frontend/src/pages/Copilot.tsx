@@ -19,7 +19,7 @@ const SUGGESTIONS = [
   { title: 'What to reorder', prompt: 'kaunsa stock kam hai aur kya order karna hai?' },
   { title: 'GST this month', prompt: 'is mahine GST kitna banega?' },
   { title: 'Morning briefing', prompt: 'Give me this morning’s inventory briefing' },
-  { title: 'What-if', prompt: 'What if demand for ACC-2001 rises 30% and lead time becomes 20 days?' },
+  { title: 'What-if', prompt: 'What if demand for ATA-105 (sugar) rises 30% and lead time becomes 7 days?' },
   { title: 'Investigate', prompt: 'Any anomalies or suspicious write-offs this week?' },
 ]
 

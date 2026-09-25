@@ -20,7 +20,7 @@ from app.services.inventory import InventoryError
 
 from .toolkit import get_actor, tools
 
-Sku = Annotated[str, Field(description="Product SKU, e.g. ELC-1001 (a product name also works)")]
+Sku = Annotated[str, Field(description="Product SKU, e.g. ATA-105 (a product name also works)")]
 
 
 def _metrics_row(m: analytics.ProductMetrics) -> dict:
@@ -558,3 +558,22 @@ def get_invoice(number: Annotated[str, Field(description="Invoice number, e.g. I
         d = billing.invoice_detail(s, billing.find_invoice(s, number))
         d.pop("seller", None)
         return d
+
+
+@tools.tool(tags=("read", "india", "billing"))
+def day_close(day: Annotated[str | None, Field(description="Date YYYY-MM-DD; default today")] = None) -> dict:
+    """Aaj ka hisaab (day-end closing): bills, sales, money received by cash/UPI/card, cash in drawer,
+    udhaar given and collected today, and the top items sold."""
+    from datetime import date as _date
+
+    from app.services import billing
+
+    with session_scope() as s:
+        return billing.day_close(s, _date.fromisoformat(day) if day else None)
+
+
+@tools.tool(tags=("read", "stock"))
+def expiring_products(days: Annotated[int, Field(ge=1, le=90, description="Look-ahead window in days")] = 15) -> list[dict]:
+    """Products whose shelf stock expires within `days` (or has expired), soonest first, with what to do."""
+    with session_scope() as s:
+        return analytics.expiring_products(s, days)

@@ -38,6 +38,11 @@ def markdowns(session: DbSession, _: CurrentUser, clear_days: int = 60) -> list[
     return analytics.markdown_suggestions(session, max(14, min(clear_days, 180)))
 
 
+@router.get("/analytics/expiring")
+def expiring(session: DbSession, _: CurrentUser, days: int = 15) -> list[dict]:
+    return analytics.expiring_products(session, max(1, min(days, 180)))
+
+
 @router.get("/analytics/abc")
 def abc(session: DbSession, _: CurrentUser) -> dict:
     return analytics.abc_summary(session)

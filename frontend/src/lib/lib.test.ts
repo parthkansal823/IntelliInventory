@@ -56,7 +56,7 @@ describe('formatters', () => {
 })
 
 describe('bill preview matches the server maths', () => {
-  const line = { product_id: 1, sku: 'HOM-4001', name: 'Bottle', quantity: 2, unit_price: 472.5, discount_pct: 0, gst_rate: 5, stock: 10 }
+  const line = { product_id: 1, sku: 'OIL-201', name: 'Mustard Oil', quantity: 2, unit_price: 472.5, discount_pct: 0, gst_rate: 5, stock: 10 }
   it('splits CGST/SGST for GST-inclusive counter sales', () => {
     const b = previewBill([line], { inclusive: true, interstate: false, exportSale: false, gstOn: true })
     expect([b.taxable, b.cgst, b.sgst, b.igst, b.total]).toEqual([900, 22.5, 22.5, 0, 945])

@@ -338,19 +338,60 @@ class Festival:
     uplift: dict[str, float] = field(default_factory=dict)  # category key -> demand multiplier
     emoji: str = "🎉"
     note: str = ""
+    regions: tuple[str, ...] = ()  # states where it is a big shopping festival; empty = all of India
+
+
+# Regional groups (festivals are shown for the shop's state - Settings -> Shop details -> State)
+NORTH_SIKH = ("Punjab", "Haryana", "Chandigarh", "Delhi", "Himachal Pradesh", "Jammu and Kashmir", "Rajasthan", "Uttarakhand")
+EAST_BENGAL = ("West Bengal", "Assam", "Tripura", "Odisha", "Jharkhand", "Bihar")
+PURVANCHAL = ("Bihar", "Jharkhand", "Uttar Pradesh", "Delhi")
+DECCAN_NEW_YEAR = ("Maharashtra", "Goa", "Karnataka", "Andhra Pradesh", "Telangana")
+GANESH_STATES = ("Maharashtra", "Goa", "Karnataka", "Telangana", "Andhra Pradesh", "Gujarat")
+KARWA_STATES = ("Punjab", "Haryana", "Delhi", "Rajasthan", "Uttar Pradesh", "Madhya Pradesh", "Chandigarh", "Himachal Pradesh")
 
 
 # Dates cross-checked against panchang calendars (lunar festivals can shift by a day regionally).
+# Category keys: grocery (staples, snacks, sweets, dry fruits, drinks), home (cleaning, kitchen), beauty (personal care),
+# puja (puja samagri), plus general-retail keys (electronics, accessories, toys, office, sports) for other shop types.
 FESTIVALS: tuple[Festival, ...] = (
-    Festival("navratri-2026", "Navratri", date(2026, 10, 11), 10, {"grocery": 1.3, "beauty": 1.2, "home": 1.2}, "🪔"),
-    Festival("dussehra-2026", "Dussehra", date(2026, 10, 20), 7, {"electronics": 1.3, "home": 1.2, "toys": 1.2}, "🏹"),
-    Festival("karwa-chauth-2026", "Karwa Chauth", date(2026, 10, 29), 5, {"beauty": 1.5, "accessories": 1.2}, "🌙"),
+    Festival(
+        "navratri-2026",
+        "Navratri",
+        date(2026, 10, 11),
+        10,
+        {"grocery": 1.4, "puja": 1.8, "beauty": 1.2},
+        "🪔",
+        "Vrat items: kuttu atta, sabudana, sendha namak, dry fruits",
+    ),
+    Festival(
+        "durga-puja-2026",
+        "Durga Puja",
+        date(2026, 10, 19),
+        10,
+        {"grocery": 1.5, "beauty": 1.4, "puja": 1.8, "home": 1.2},
+        "🌺",
+        "Maha Ashtami - biggest festival in the East",
+        EAST_BENGAL,
+    ),
+    Festival(
+        "dussehra-2026", "Dussehra", date(2026, 10, 20), 7, {"grocery": 1.2, "puja": 1.3, "home": 1.2, "electronics": 1.3}, "🏹"
+    ),
+    Festival(
+        "karwa-chauth-2026",
+        "Karwa Chauth",
+        date(2026, 10, 29),
+        5,
+        {"beauty": 1.6, "puja": 1.6, "grocery": 1.2, "accessories": 1.2},
+        "🌙",
+        "Sargi, puja thali, mehndi",
+        KARWA_STATES,
+    ),
     Festival(
         "dhanteras-2026",
         "Dhanteras",
         date(2026, 11, 6),
         7,
-        {"home": 1.8, "electronics": 1.6},
+        {"home": 1.6, "puja": 1.5, "electronics": 1.6},
         "🪙",
         "Utensils, appliances & gold-buying day",
     ),
@@ -359,21 +400,85 @@ FESTIVALS: tuple[Festival, ...] = (
         "Diwali",
         date(2026, 11, 8),
         14,
-        {"electronics": 1.9, "grocery": 1.8, "home": 1.6, "accessories": 1.5, "toys": 1.4, "beauty": 1.4, "office": 1.1},
+        {
+            "grocery": 1.8,
+            "puja": 2.5,
+            "home": 1.7,
+            "beauty": 1.4,
+            "electronics": 1.9,
+            "accessories": 1.5,
+            "toys": 1.4,
+            "office": 1.1,
+        },
         "🪔",
-        "Biggest retail season of the year",
+        "Biggest shopping season: sweets, dry fruits, diyas, cleaning, gifts",
     ),
     Festival("bhai-dooj-2026", "Bhai Dooj", date(2026, 11, 10), 3, {"grocery": 1.3, "accessories": 1.2}, "🎁"),
-    Festival("chhath-2026", "Chhath Puja", date(2026, 11, 15), 5, {"grocery": 1.4}, "🌅", "Strong in Bihar, Jharkhand, UP"),
-    Festival("christmas-2026", "Christmas", date(2026, 12, 25), 10, {"toys": 1.7, "electronics": 1.3, "grocery": 1.3}, "🎄"),
-    Festival("new-year-2027", "New Year", date(2027, 1, 1), 5, {"grocery": 1.3, "electronics": 1.2}, "🎆"),
-    Festival("sankranti-2027", "Makar Sankranti / Pongal", date(2027, 1, 14), 5, {"grocery": 1.5, "home": 1.2}, "🪁"),
+    Festival(
+        "chhath-2026",
+        "Chhath Puja",
+        date(2026, 11, 15),
+        5,
+        {"grocery": 1.6, "puja": 2.0},
+        "🌅",
+        "Thekua, fruits, sugarcane, soop",
+        PURVANCHAL,
+    ),
+    Festival(
+        "gurpurab-2026",
+        "Guru Nanak Gurpurab",
+        date(2026, 11, 24),
+        5,
+        {"grocery": 1.5, "puja": 1.3},
+        "🙏",
+        "Langar: atta, ghee, dal, sugar, milk",
+        NORTH_SIKH,
+    ),
+    Festival("christmas-2026", "Christmas", date(2026, 12, 25), 10, {"grocery": 1.3, "toys": 1.7, "electronics": 1.3}, "🎄"),
+    Festival(
+        "new-year-2027",
+        "New Year",
+        date(2027, 1, 1),
+        5,
+        {"grocery": 1.4, "electronics": 1.2},
+        "🎆",
+        "Snacks, cold drinks, party items",
+    ),
+    Festival(
+        "lohri-2027",
+        "Lohri",
+        date(2027, 1, 13),
+        5,
+        {"grocery": 1.8, "puja": 1.2},
+        "🔥",
+        "Til, gur, rewri, gajak, peanuts, popcorn",
+        NORTH_SIKH,
+    ),
+    Festival(
+        "sankranti-2027",
+        "Makar Sankranti",
+        date(2027, 1, 14),
+        5,
+        {"grocery": 1.5, "puja": 1.2, "home": 1.1},
+        "🪁",
+        "Til-gur, khichdi, kites",
+    ),
+    Festival(
+        "pongal-2027",
+        "Pongal",
+        date(2027, 1, 15),
+        5,
+        {"grocery": 1.6, "puja": 1.3, "home": 1.2},
+        "🍚",
+        "Rice, jaggery, moong dal, ghee",
+        ("Tamil Nadu", "Puducherry"),
+    ),
     Festival(
         "republic-day-2027",
         "Republic Day sales",
         date(2027, 1, 26),
         7,
-        {"electronics": 1.5, "accessories": 1.4, "home": 1.3},
+        {"electronics": 1.5, "accessories": 1.4, "home": 1.2},
         "🇮🇳",
     ),
     Festival(
@@ -383,23 +488,99 @@ FESTIVALS: tuple[Festival, ...] = (
         10,
         {"grocery": 1.6, "beauty": 1.3, "accessories": 1.2},
         "🌙",
-        "Date depends on moon sighting",
-    ),
-    Festival("holi-2027", "Holi", date(2027, 3, 22), 7, {"grocery": 1.4, "beauty": 1.3}, "🎨"),
-    Festival(
-        "rakhi-2027", "Raksha Bandhan", date(2027, 8, 17), 7, {"grocery": 1.5, "accessories": 1.3, "electronics": 1.2}, "🧵"
+        "Sewaiyan, dry fruits, milk, dates - date depends on moon sighting",
     ),
     Festival(
-        "ganesh-2027", "Ganesh Chaturthi", date(2027, 9, 4), 7, {"grocery": 1.3, "home": 1.2}, "🐘", "Strong in Maharashtra"
+        "holi-2027",
+        "Holi",
+        date(2027, 3, 22),
+        7,
+        {"grocery": 1.5, "beauty": 1.3, "puja": 1.2},
+        "🎨",
+        "Gujiya, colours, snacks, cold drinks",
     ),
-    Festival("onam-2027", "Onam", date(2027, 9, 12), 7, {"grocery": 1.4, "home": 1.3}, "🌼", "Strong in Kerala"),
+    Festival(
+        "ugadi-2027",
+        "Ugadi / Gudi Padwa",
+        date(2027, 4, 7),
+        5,
+        {"grocery": 1.4, "puja": 1.5, "home": 1.2},
+        "🌿",
+        "New year: neem, jaggery, puja items",
+        DECCAN_NEW_YEAR,
+    ),
+    Festival(
+        "baisakhi-2027",
+        "Baisakhi",
+        date(2027, 4, 14),
+        5,
+        {"grocery": 1.4, "puja": 1.2},
+        "🌾",
+        "Harvest festival - sweets, langar",
+        NORTH_SIKH,
+    ),
+    Festival(
+        "bihu-2027",
+        "Rongali Bihu",
+        date(2027, 4, 14),
+        7,
+        {"grocery": 1.5, "beauty": 1.2, "home": 1.2},
+        "🥁",
+        "Pitha, jaggery, rice",
+        ("Assam",),
+    ),
+    Festival(
+        "rakhi-2027",
+        "Raksha Bandhan",
+        date(2027, 8, 17),
+        7,
+        {"grocery": 1.5, "accessories": 1.3, "electronics": 1.2},
+        "🧵",
+        "Sweets, chocolates, dry fruit boxes",
+    ),
+    Festival(
+        "ganesh-2027",
+        "Ganesh Chaturthi",
+        date(2027, 9, 4),
+        7,
+        {"grocery": 1.4, "puja": 1.8, "home": 1.2},
+        "🐘",
+        "Modak, puja samagri",
+        GANESH_STATES,
+    ),
+    Festival("onam-2027", "Onam", date(2027, 9, 12), 7, {"grocery": 1.6, "home": 1.3}, "🌼", "Sadhya ingredients", ("Kerala",)),
 )
 
 _CATEGORY_KEYS = (
-    ("grocery", ("grocer", "food", "sweet", "snack", "dry fruit", "beverage", "fmcg")),
-    ("electronics", ("electron", "mobile", "appliance", "gadget")),
-    ("home", ("home", "kitchen", "utensil", "decor")),
+    ("puja", ("puja", "pooja", "samagri", "agarbatti")),
     ("beauty", ("beauty", "health", "cosmetic", "personal care")),
+    ("home", ("home", "kitchen", "utensil", "decor", "cleaning", "household")),
+    (
+        "grocery",
+        (
+            "grocer",
+            "food",
+            "sweet",
+            "snack",
+            "biscuit",
+            "dry fruit",
+            "beverage",
+            "drink",
+            "fmcg",
+            "atta",
+            "rice",
+            "dal",
+            "oil",
+            "ghee",
+            "masal",
+            "spice",
+            "dairy",
+            "bakery",
+            "staple",
+            "kirana",
+        ),
+    ),
+    ("electronics", ("electron", "mobile", "appliance", "gadget")),
     ("accessories", ("accessor", "jewel", "fashion", "gift")),
     ("toys", ("toy", "game")),
     ("office", ("office", "stationer")),
@@ -412,24 +593,48 @@ def category_key(category: str | None) -> str | None:
     return next((key for key, words in _CATEGORY_KEYS if any(w in name for w in words)), None)
 
 
-def upcoming_festivals(today: date | None = None, horizon_days: int = 365) -> list[Festival]:
+def shop_state() -> str | None:
+    """The shop's state (Settings -> Shop details), else the first warehouse's state; decides regional festivals."""
+    from app.db import session_scope
+    from app.services.billing import business_profile  # local import: billing imports this module
+
+    state = business_profile().get("state")
+    if state:
+        return state
+    with session_scope() as s:
+        return s.exec(select(Warehouse.state).where(Warehouse.state.is_not(None)).order_by(Warehouse.id)).first()
+
+
+_ALL = object()
+
+
+def festivals_for(state: str | None | object = _ALL) -> list[Festival]:
+    """All-India festivals + the regional ones for this state (unknown state -> everything)."""
+    if state is _ALL:
+        state = shop_state()
+    if not state or state == OUTSIDE_INDIA:
+        return list(FESTIVALS)
+    return [f for f in FESTIVALS if not f.regions or state in f.regions]
+
+
+def upcoming_festivals(today: date | None = None, horizon_days: int = 365, state: str | None | object = _ALL) -> list[Festival]:
     today = today or ist_today()
-    return [f for f in FESTIVALS if today <= f.day <= today + timedelta(days=horizon_days)]
+    return [f for f in festivals_for(state) if today <= f.day <= today + timedelta(days=horizon_days)]
 
 
-def festival_multiplier(category: str | None, day: date) -> tuple[float, str | None]:
+def festival_multiplier(category: str | None, day: date, festivals: list[Festival] | None = None) -> tuple[float, str | None]:
     """Demand multiplier for a category on a given day (max over overlapping festival windows)."""
     key = category_key(category)
     best, name = 1.0, None
     if key is None:
         return best, name
-    for f in FESTIVALS:
+    for f in FESTIVALS if festivals is None else festivals:
         if f.day - timedelta(days=f.window) <= day <= f.day and f.uplift.get(key, 1.0) > best:
             best, name = f.uplift[key], f.name
     return best, name
 
 
-def festival_calendar(today: date | None = None) -> list[dict]:
+def festival_calendar(today: date | None = None, state: str | None | object = _ALL) -> list[dict]:
     today = today or ist_today()
     return [
         {
@@ -441,9 +646,10 @@ def festival_calendar(today: date | None = None) -> list[dict]:
             "buying_starts": (f.day - timedelta(days=f.window)).isoformat(),
             "emoji": f.emoji,
             "note": f.note,
+            "regional": bool(f.regions),
             "categories": {k: v for k, v in sorted(f.uplift.items(), key=lambda kv: -kv[1])},
         }
-        for f in upcoming_festivals(today)
+        for f in upcoming_festivals(today, state=state)
     ]
 
 
@@ -452,7 +658,8 @@ def festival_plan(session: Session, slug: str | None = None, today: date | None 
     from app.services.analytics import compute_metrics  # local import: analytics imports this module
 
     today = today or ist_today()
-    upcoming = upcoming_festivals(today, 180)
+    region = shop_state()
+    upcoming = upcoming_festivals(today, 180, state=region)
     festival = next((f for f in upcoming if slug and (f.slug == slug or slug.lower() in f.name.lower())), None)
     if festival is None:
         festival = next((f for f in upcoming if f.slug.startswith("diwali")), None) if slug is None else None
@@ -502,7 +709,7 @@ def festival_plan(session: Session, slug: str | None = None, today: date | None 
     items.sort(key=lambda i: (i["suggested_order_qty"] == 0, i["order_by"], -i["extra_revenue"]))
     need = [i for i in items if i["suggested_order_qty"]]
     return {
-        "festival": festival_calendar(today)[[f.slug for f in upcoming_festivals(today)].index(festival.slug)],
+        "festival": festival_calendar(today, state=region)[[f.slug for f in upcoming].index(festival.slug)],
         "items": items,
         "summary": {
             "products_affected": len(items),

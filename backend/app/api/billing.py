@@ -1,5 +1,7 @@
 """Billing endpoints: invoices, payments, customers (khata) and the business profile printed on bills."""
 
+from datetime import date
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
@@ -37,6 +39,12 @@ def update_profile(body: ProfileIn, _: ManagerUser) -> dict:
 @router.get("/api/billing/summary")
 def summary(session: DbSession, _: CurrentUser, days: int = 30) -> dict:
     return billing.billing_summary(session, max(1, min(days, 365)))
+
+
+@router.get("/api/billing/day-close")
+def day_close(session: DbSession, _: CurrentUser, day: date | None = None) -> dict:
+    """Aaj ka hisaab (day-end closing) - for today unless `day` (YYYY-MM-DD) is given."""
+    return billing.day_close(session, day)
 
 
 @router.get("/api/billing/dues")

@@ -36,75 +36,90 @@ from app.services.india import make_gstin
 
 DAYS = 120
 
+# Demo shop: Kansal General Store, Kharar (Punjab) - a typical Indian general / kirana store.
+# (The app itself works for any shop anywhere in India; this is only the sample data.)
 CATEGORIES = [
-    ("Electronics", "#6366f1"),
-    ("Accessories", "#0ea5e9"),
-    ("Office Supplies", "#f59e0b"),
-    ("Home & Kitchen", "#10b981"),
-    ("Health & Beauty", "#ec4899"),
-    ("Sports & Outdoors", "#84cc16"),
-    ("Groceries", "#f97316"),
-    ("Toys & Games", "#a855f7"),
+    ("Atta, Rice & Dal", "#f59e0b"),
+    ("Oil & Ghee", "#eab308"),
+    ("Masale & Dry Fruits", "#b45309"),
+    ("Snacks & Biscuits", "#f97316"),
+    ("Beverages", "#0ea5e9"),
+    ("Personal Care", "#ec4899"),
+    ("Home Care", "#10b981"),
+    ("Dairy & Bakery", "#6366f1"),
+    ("Puja Samagri", "#dc2626"),
 ]
 
 # name, email, phone, lead time, rating, state, PAN (GSTIN is derived with a valid checksum)
 SUPPLIERS = [
-    ("TechSource India Pvt Ltd", "orders@techsource.example.in", "+91 98450 10101", 10, 4.6, "Karnataka", "AAACT4821K"),
-    ("Pacific Components LLP", "sales@pacificcomp.example.in", "+91 94440 20144", 14, 4.1, "Tamil Nadu", "AAKFP6310M"),
-    ("OfficeHub Wholesale", "b2b@officehub.example.in", "+91 98110 30190", 5, 4.4, "Delhi", "AABCO7742P"),
-    ("HomeGoods Direct", "supply@homegoods.example.in", "+91 98250 40123", 7, 3.9, "Gujarat", "AADCH2291Q"),
-    ("FreshFarm Distributors", "orders@freshfarm.example.in", "+91 98200 50177", 3, 4.8, "Maharashtra", "AAFFF5503R"),
-    ("PlayWorld Imports", "trade@playworld.example.in", "+91 99200 60165", 21, 3.7, "Maharashtra", "AAGCP8816L"),
+    ("Aggarwal Traders", "orders@aggarwaltraders.example.in", "+91 98140 10101", 2, 4.6, "Punjab", "AAFFA4821K"),
+    ("Mohali Oil & Ghee Depot", "sales@mohalioil.example.in", "+91 98150 20144", 3, 4.4, "Punjab", "AAKFM6310M"),
+    ("Chandigarh Snacks Agency", "b2b@chdsnacks.example.in", "+91 98720 30190", 3, 4.2, "Chandigarh", "AABCC7742P"),
+    ("Ludhiana FMCG Distributors", "supply@ldhfmcg.example.in", "+91 98880 40123", 5, 4.5, "Punjab", "AADCL2291Q"),
+    ("Tricity Dairy Supplies", "orders@tricitydairy.example.in", "+91 98760 50177", 1, 4.8, "Punjab", "AAFFT5503R"),
+    ("Delhi Dry Fruits & Masala Co.", "trade@delhidryfruits.example.in", "+91 99100 60165", 7, 3.9, "Delhi", "AAGCD8816L"),
+    ("Amritsar Puja Bhandar", "sales@amritsarpuja.example.in", "+91 98150 70188", 6, 4.1, "Punjab", "AAHFA3345N"),
 ]
 
 WAREHOUSES = [
-    ("MAIN", "Central DC", "Bhiwandi, Mumbai", "Maharashtra"),
-    ("NORTH", "North Hub", "Okhla, Delhi", "Delhi"),
-    ("SOUTH", "South Hub", "Hosur Road, Bengaluru", "Karnataka"),
+    ("MAIN", "Shop (counter)", "Main Bazaar, Kharar", "Punjab"),
+    ("GODOWN", "Godown", "Near Grain Market, Kharar", "Punjab"),
 ]
 
-# Indian-market demo catalogue, priced in rupees (cost, selling price), with illustrative HSN codes and
-# GST 2.0 slabs (w.e.f. 22 Sep 2025: 0/5/18/40%) - confirm rates for your own products with your CA.
-# sku, name, category, supplier, unit cost ₹, selling price ₹, base daily demand, MOQ, scenario, trend, HSN, GST %
+# Illustrative HSN codes and GST 2.0 slabs (w.e.f. 22 Sep 2025: 0/5/18/40%) - confirm with your CA.
+# sku, name, category, supplier, cost ₹, selling price ₹ (before GST), daily demand, MOQ, scenario, trend, HSN, GST %,
+# unit, shelf life in days (None = does not expire)
 PRODUCTS = [
-    ("ELC-1001", "Wireless Earbuds (TWS, 40h)", 0, 0, 900, 1499, 14, 10, "low", 0.2, "8518", 18),
-    ("ELC-1002", "Smart Watch with Bluetooth Calling", 0, 0, 1400, 2499, 6, 5, "shrinkage", 0.1, "8517", 18),
-    ("ELC-1003", "Bluetooth Speaker 10W", 0, 0, 700, 1299, 9, 10, "spike", 0.0, "8518", 18),
-    ("ELC-1004", 'LED Smart TV 32"', 0, 0, 9500, 13999, 2, 2, "out", 0.1, "8528", 18),
-    ("ELC-1005", "Ceiling Fan 1200mm (BLDC)", 0, 0, 2300, 3499, 4, 2, "healthy", 0.5, "8414", 18),
-    ("ELC-1006", "Portable SSD 1TB", 0, 0, 4400, 6999, 5, 5, "healthy", 0.2, "8471", 18),
-    ("ACC-2001", "Fast Charger 33W Type-C", 1, 1, 350, 699, 22, 20, "critical", 0.3, "8504", 18),
-    ("ACC-2002", "Braided USB-C Cable 2m", 1, 1, 120, 299, 40, 50, "healthy", 0.1, "8544", 18),
-    ("ACC-2003", "Mobile Back Cover (Silicone)", 1, 1, 60, 199, 11, 10, "healthy", 0.0, "3926", 18),
-    ("ACC-2004", 'Laptop Sleeve 14"', 1, 1, 350, 799, 7, 10, "healthy", -0.1, "4202", 18),
-    ("ACC-2005", "Power Bank 20000mAh", 1, 1, 900, 1499, 12, 10, "healthy", 0.45, "8507", 18),
-    ("OFF-3001", "A4 Copy Paper 75 GSM (500 sheets)", 2, 2, 260, 399, 35, 50, "low", 0.0, "4802", 18),
-    ("OFF-3002", "Ball Pens (Pack of 10)", 2, 2, 45, 100, 18, 20, "healthy", -0.3, "9608", 18),
-    ("OFF-3003", "Ergonomic Mesh Office Chair", 2, 2, 4200, 6999, 1.2, 1, "healthy", 0.1, "9401", 18),
-    ("OFF-3004", "Steel Almirah 2-Door", 2, 2, 7500, 11999, 0.8, 1, "overstock", 0.0, "9403", 18),
-    ("OFF-3005", "Long Notebooks (Pack of 6)", 2, 2, 150, 240, 20, 25, "healthy", 0.0, "4820", 0),
-    ("HOM-4001", "Steel Water Bottle 1L", 3, 3, 220, 449, 16, 12, "healthy", 0.25, "7323", 5),
-    ("HOM-4002", "Pressure Cooker 5L", 3, 3, 1100, 1799, 6, 6, "overstock", -0.1, "7615", 5),
-    ("HOM-4003", "Non-Stick Tawa 28cm", 3, 3, 450, 799, 5, 5, "healthy", 0.0, "7615", 5),
-    ("HOM-4004", "Air Fryer 4.2L", 3, 3, 3600, 5999, 3, 2, "low_on_order", 0.35, "8516", 18),
-    ("HOM-4005", "Steel Lunch Box (3 Tier)", 3, 3, 250, 499, 7, 10, "healthy", 0.0, "7323", 5),
-    ("HLT-5001", "Hand Sanitizer 500ml", 4, 3, 95, 199, 25, 24, "spike", 0.0, "3808", 18),
-    ("HLT-5002", "Coconut Hair Oil 500ml", 4, 3, 120, 210, 8, 12, "healthy", 0.3, "3305", 5),
-    ("HLT-5003", "Electric Toothbrush", 4, 3, 1200, 1999, 4, 4, "healthy", 0.1, "8509", 18),
-    ("SPT-6001", "Yoga Mat 6mm", 5, 5, 350, 699, 8, 10, "low", 0.2, "9506", 5),
-    ("SPT-6002", "Cricket Bat (Kashmir Willow)", 5, 5, 1100, 1899, 2, 2, "healthy", 0.0, "9506", 5),
-    ("SPT-6003", "Cotton Sports Socks (3 pairs)", 5, 5, 120, 299, 15, 20, "healthy", 0.1, "6115", 5),
-    ("SPT-6004", "Badminton Racquet", 5, 5, 450, 899, 6, 10, "healthy", 0.0, "9506", 5),
-    ("GRC-7001", "Assam Tea 1kg", 6, 4, 380, 560, 20, 24, "healthy", 0.1, "0902", 5),
-    ("GRC-7002", "Filter Coffee Powder 1kg", 6, 4, 520, 799, 12, 10, "critical", 0.2, "0901", 5),
-    ("GRC-7003", "Almonds (Badam) 500g", 6, 4, 420, 649, 14, 12, "out", 0.0, "0802", 5),
-    ("GRC-7004", "Soan Papdi 500g", 6, 4, 90, 160, 30, 48, "shrinkage", 0.0, "2106", 5),
-    ("GRC-7005", "Basmati Rice 5kg", 6, 4, 480, 699, 9, 6, "healthy", 0.4, "1006", 5),
-    ("TOY-8001", "Building Blocks Set 500pc", 7, 5, 700, 1299, 4, 4, "healthy", 0.0, "9503", 5),
-    ("TOY-8002", "RC Racing Car", 7, 5, 800, 1499, 3, 4, "overstock", -0.2, "9503", 5),
-    ("TOY-8003", "Ludo & Snakes-Ladders Board Game", 7, 5, 150, 299, 5, 6, "drop", 0.0, "9504", 5),
-    ("TOY-8004", "Plush Teddy Bear", 7, 5, 250, 549, 6, 12, "healthy", 0.1, "9503", 5),
+    ("ATA-101", "Chakki Fresh Atta 10kg", 0, 0, 380, 420, 12, 10, "healthy", 0.1, "1101", 5, "pack", 90),
+    ("ATA-102", "Basmati Rice 5kg", 0, 0, 480, 560, 6, 5, "healthy", 0.2, "1006", 5, "pack", 365),
+    ("ATA-103", "Toor Dal 1kg", 0, 0, 140, 160, 15, 20, "low", 0.1, "0713", 5, "pack", 180),
+    ("ATA-104", "Kala Chana 1kg", 0, 0, 85, 98, 8, 10, "healthy", 0.0, "0713", 5, "pack", 180),
+    ("ATA-105", "Sugar 1kg", 0, 0, 42, 46, 25, 50, "critical", 0.1, "1701", 5, "pack", 365),
+    ("ATA-106", "Iodised Salt 1kg", 0, 0, 22, 27, 10, 25, "healthy", 0.0, "2501", 0, "pack", 730),
+    ("OIL-201", "Kachi Ghani Mustard Oil 1L", 1, 1, 150, 170, 14, 12, "healthy", 0.1, "1514", 5, "bottle", 270),
+    ("OIL-202", "Desi Ghee 1L", 1, 1, 560, 620, 5, 6, "shrinkage", 0.0, "0405", 5, "tin", 270),
+    ("OIL-203", "Refined Soyabean Oil 1L", 1, 1, 125, 140, 10, 12, "healthy", 0.0, "1507", 5, "pouch", 270),
+    ("MSL-301", "Haldi Powder 200g", 2, 5, 45, 55, 6, 10, "healthy", 0.0, "0910", 5, "pack", 365),
+    ("MSL-302", "Garam Masala 100g", 2, 5, 45, 75, 4, 10, "overstock", -0.1, "0910", 5, "pack", 365),
+    ("MSL-303", "Almonds (Badam) 500g", 2, 5, 420, 490, 4, 5, "out", 0.0, "0802", 5, "pack", 180),
+    ("MSL-304", "Kaju 250g", 2, 5, 250, 295, 3, 5, "healthy", 0.3, "0801", 5, "pack", 180),
+    ("SNK-401", "Glucose Biscuits Family Pack", 3, 2, 38, 45, 30, 48, "spike", 0.0, "1905", 5, "pack", 180),
+    ("SNK-402", "Aloo Bhujia 400g", 3, 2, 80, 95, 12, 24, "healthy", 0.1, "2106", 5, "pack", 120),
+    ("SNK-403", "Suji Rusk 300g", 3, 2, 35, 42, 10, 24, "low", 0.0, "1905", 5, "pack", 120),
+    ("SNK-404", "Chocolate Bar 50g", 3, 2, 38, 45, 20, 48, "healthy", 0.2, "1806", 5, "pcs", 270),
+    ("SNK-405", "Instant Noodles (Pack of 4)", 3, 2, 48, 56, 15, 24, "healthy", 0.1, "1902", 5, "pack", 240),
+    ("BEV-501", "Assam Tea 500g", 4, 2, 210, 245, 8, 10, "critical", 0.1, "0902", 5, "pack", 365),
+    ("BEV-502", "Cold Drink 2L", 4, 2, 55, 68, 10, 12, "healthy", 0.3, "2202", 40, "bottle", 180),
+    ("BEV-503", "Instant Coffee 50g", 4, 2, 130, 155, 4, 10, "healthy", 0.0, "2101", 5, "jar", 365),
+    ("BEV-504", "Mango Juice 1L", 4, 2, 85, 100, 6, 12, "drop", 0.0, "2009", 5, "pack", 180),
+    ("PRC-601", "Bathing Soap (Pack of 4)", 5, 3, 120, 140, 9, 12, "healthy", 0.1, "3401", 5, "pack", 730),
+    ("PRC-602", "Toothpaste 150g", 5, 3, 85, 100, 8, 12, "healthy", 0.0, "3306", 5, "pcs", 540),
+    ("PRC-603", "Shampoo 340ml", 5, 3, 190, 230, 4, 6, "low_on_order", 0.2, "3305", 5, "bottle", 730),
+    ("PRC-604", "Coconut Hair Oil 500ml", 5, 3, 150, 180, 5, 6, "healthy", 0.1, "3305", 5, "bottle", 540),
+    ("HMC-701", "Detergent Powder 1kg", 6, 3, 95, 115, 10, 12, "healthy", 0.1, "3402", 18, "pack", 730),
+    ("HMC-702", "Dishwash Bar (Pack of 3)", 6, 3, 40, 50, 8, 24, "healthy", 0.0, "3402", 18, "pack", 730),
+    ("HMC-703", "Floor Cleaner 1L", 6, 3, 120, 185, 3, 6, "overstock", 0.0, "3402", 18, "bottle", 730),
+    ("HMC-704", "Toilet Cleaner 500ml", 6, 3, 80, 95, 3, 12, "healthy", 0.0, "3808", 18, "bottle", 730),
+    ("DRY-801", "Brown Bread 400g", 7, 4, 35, 40, 20, 20, "healthy", 0.0, "1905", 0, "pack", 3),
+    ("DRY-802", "Paneer 200g", 7, 4, 80, 90, 8, 10, "low", 0.2, "0406", 0, "pack", 4),
+    ("DRY-803", "Butter 100g", 7, 4, 52, 58, 6, 10, "healthy", 0.0, "0405", 5, "pack", 60),
+    ("DRY-804", "Dahi (Curd) 400g", 7, 4, 35, 40, 12, 12, "healthy", 0.1, "0403", 0, "cup", 6),
+    ("PUJ-901", "Agarbatti (Pack of 100)", 8, 6, 45, 60, 8, 24, "healthy", 0.0, "3307", 5, "pack", None),
+    ("PUJ-902", "Clay Diya (Pack of 12)", 8, 6, 30, 40, 2, 24, "healthy", 0.0, "6912", 5, "pack", None),
+    ("PUJ-903", "Camphor (Kapoor) 50g", 8, 6, 40, 50, 3, 12, "healthy", 0.0, "2914", 5, "pack", None),
+    ("PUJ-904", "Cotton Wicks (Batti)", 8, 6, 15, 20, 3, 24, "healthy", 0.0, "5601", 5, "pack", None),
 ]
+
+# Products whose shelf stock expires soon in the demo (days from today) - shows the expiry alert.
+EXPIRING_SOON = {"DRY-801": 2, "DRY-802": 3, "DRY-804": 5, "SNK-403": 12}
+
+
+def ean13(index: int) -> str:
+    """Valid EAN-13 barcode with the India GS1 prefix 890 (demo values)."""
+    body = f"890{7000000 + index * 137:09d}"[:12]
+    check = (10 - sum(int(d) * (3 if i % 2 else 1) for i, d in enumerate(body)) % 10) % 10
+    return body + str(check)
+
 
 WEEKLY = {
     "retail": [0.85, 0.88, 0.9, 0.95, 1.1, 1.35, 1.25],
@@ -214,10 +229,10 @@ def seed_demo(session: Session) -> bool:
         shop_time = time(hour if hour is not None else rng.randint(9, 20), rng.randint(0, 59))
         return min(datetime.combine(d, shop_time, tzinfo=IST).astimezone(UTC), now)
 
-    for i, (sku, name, ci, si, cost, price, base, moq, scenario, trend, hsn, gst) in enumerate(PRODUCTS):
+    for i, (sku, name, ci, si, cost, price, base, moq, scenario, trend, hsn, gst, unit, shelf) in enumerate(PRODUCTS):
         supplier = sups[si]
         lead = supplier.lead_time_days
-        home = whs[0] if i % 5 < 3 else whs[1] if i % 5 == 3 else whs[2]
+        home = whs[0] if i % 4 else whs[1]  # most stock on the shop shelves, bulk in the godown
         product = Product(
             sku=sku,
             name=name,
@@ -228,6 +243,9 @@ def seed_demo(session: Session) -> bool:
             hsn_code=hsn,
             gst_rate=gst,
             gst_source="manual",
+            barcode=ean13(i),
+            unit=unit,
+            expiry_date=(today + timedelta(days=EXPIRING_SOON.get(sku, round(shelf * 0.6)))) if shelf else None,
             min_order_qty=moq,
             description=f"{name} — {CATEGORIES[ci][0].lower()} item supplied by {supplier.name}.",
             created_at=at(0, 8) - timedelta(days=1),
@@ -235,7 +253,7 @@ def seed_demo(session: Session) -> bool:
         session.add(product)
         session.flush()
 
-        profile = WEEKLY["office" if ci == 2 else "grocery" if ci == 6 else "retail"]
+        profile = WEEKLY["retail" if ci in (5, 6) else "grocery"]
         sales = []
         for d in range(DAYS):
             day = today - timedelta(days=DAYS - 1 - d)
@@ -407,32 +425,32 @@ def seed_demo(session: Session) -> bool:
 
 # days ago, customer (None = walk-in), items (sku, qty), payment mode, amount paid (None = full / credit = 0)
 DEMO_BILLS = [
-    (6, None, [("GRC-7001", 2), ("HOM-4001", 1)], "cash", None),
-    (6, "parth", [("ACC-2002", 2), ("ACC-2003", 1)], "upi", None),
-    (5, "parth", [("GRC-7001", 4), ("GRC-7005", 2)], "credit", None),
-    (5, None, [("SPT-6003", 2)], "cash", None),
-    (4, None, [("ELC-1005", 1)], "card", None),
-    (3, "ananya", [("SPT-6002", 2), ("SPT-6004", 4)], "bank", None),  # export - Outside India
-    (3, "parth", [("HLT-5002", 3), ("OFF-3005", 3)], "upi", 300.0),  # part-paid, rest on khata
-    (2, None, [("ACC-2005", 1)], "upi", None),
-    (2, None, [("OFF-3002", 2), ("OFF-3005", 3)], "cash", None),
-    (1, None, [("HOM-4003", 1), ("HOM-4005", 1)], "upi", None),
-    (1, "parth", [("TOY-8004", 1)], "credit", None),
-    (0, None, [("ACC-2002", 1), ("ACC-2004", 1)], "upi", None),
-    (0, None, [("GRC-7005", 1)], "cash", None),
+    (6, None, [("ATA-101", 1), ("OIL-201", 2), ("ATA-106", 1)], "cash", None),
+    (6, "parth", [("SNK-404", 4), ("BEV-502", 1)], "upi", None),
+    (5, "parth", [("ATA-101", 2), ("ATA-103", 3), ("OIL-203", 2)], "credit", None),
+    (5, None, [("PRC-602", 2), ("PRC-601", 1)], "cash", None),
+    (4, "ananya", [("OIL-202", 1), ("MSL-304", 2)], "card", None),
+    (3, None, [("SNK-402", 2), ("BEV-503", 1)], "upi", None),
+    (3, "parth", [("HMC-701", 2), ("HMC-702", 3)], "upi", 100.0),  # part-paid, rest on khata
+    (2, None, [("DRY-803", 2), ("DRY-801", 1)], "upi", None),
+    (2, None, [("PUJ-901", 2), ("PUJ-903", 1)], "cash", None),
+    (1, "ananya", [("ATA-102", 1), ("MSL-301", 2)], "upi", None),
+    (1, "parth", [("SNK-405", 3)], "credit", None),
+    (0, None, [("SNK-404", 2), ("BEV-502", 1)], "upi", None),
+    (0, None, [("ATA-104", 1), ("PUJ-904", 2)], "cash", None),
 ]
 
 
 def seed_billing(session: Session, rng: random.Random) -> None:
-    """A week of bills: counter sales, UPI/card, udhaar on the khata and one export invoice."""
+    """A week of bills: counter sales, UPI/card and udhaar on the khata."""
     from app.models import Customer
     from app.services import billing
     from app.services.settings import set_setting
 
     set_setting(billing.PROFILE_KEY, billing.demo_profile())
     customers = {
-        "parth": Customer(name="Parth", phone="+91 98201 45678", state="Maharashtra", address="Andheri East, Mumbai"),
-        "ananya": Customer(name="Ananya", phone="+971 50 123 4567", state="Outside India", address="Deira, Dubai, UAE"),
+        "parth": Customer(name="Parth", phone="+91 98140 45678", state="Punjab", address="Ward 7, Kharar"),
+        "ananya": Customer(name="Ananya", phone="+91 98760 12345", state="Punjab", address="Sector 115, Mohali"),
     }
     session.add_all(customers.values())
     session.commit()
@@ -449,7 +467,7 @@ def seed_billing(session: Session, rng: random.Random) -> None:
             customer_id=customers[who].id if who else None,
             payment_mode=mode,
             amount_paid=paid,
-            prices_include_gst=who is None,  # counter sales at MRP (GST-inclusive); B2B/export bills exclusive
+            prices_include_gst=True,  # general store: counter prices include GST (MRP style)
             actor="user:ananya@intelliinventory.dev",
             created_at=when,
             emit=False,

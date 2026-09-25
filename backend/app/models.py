@@ -101,6 +101,9 @@ class Product(SQLModel, table=True):
     hsn_code: str | None = None  # HSN code for GST (optional; AI can fill it later)
     gst_rate: float | None = None  # GST 2.0 slab in %: 0, 3 (gold/silver), 5, 18, 40; None = not set yet
     gst_source: str | None = None  # "manual" | "ai" (AI-suggested, pending review)
+    barcode: str | None = Field(default=None, index=True)  # EAN-13 / UPC printed on the pack (scanner fills it)
+    unit: str = "pcs"  # pcs | kg | g | L | ml | pack | box | dozen - shown on bills
+    expiry_date: date | None = None  # nearest expiry of the stock on the shelf (FMCG / dairy / bakery)
     is_active: bool = True
     created_at: datetime = Field(default_factory=utcnow)
 

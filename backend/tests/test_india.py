@@ -30,25 +30,34 @@ def test_gst_split_intra_vs_inter_state():
 
 
 def test_purchase_orders_carry_gst_and_eway_flag(session):
-    local = purchasing.create_po(session, [(find_product(session, "GRC-7002"), 500)], created_by="test")  # FreshFarm, MH -> MH
+    local = purchasing.create_po(
+        session, [(find_product(session, "ATA-105"), 500)], created_by="test"
+    )  # Aggarwal, Punjab -> Punjab
     summary = purchasing.po_summary(session, local)
     assert not summary["tax"]["interstate"] and summary["tax"]["cgst"] == summary["tax"]["sgst"] > 0
-    assert summary["lines"][0]["gst_rate"] == 5 and summary["lines"][0]["hsn_code"] == "0901"
+    assert summary["lines"][0]["gst_rate"] == 5 and summary["lines"][0]["hsn_code"] == "1701"
     assert summary["grand_total"] == round(summary["total"] * 1.05, 2)
     assert summary["tax"]["eway_bill_required"] == (summary["grand_total"] > 50_000)
 
-    remote = purchasing.create_po(session, [(find_product(session, "ELC-1006"), 20)], created_by="test")  # Karnataka -> MH
+    remote = purchasing.create_po(session, [(find_product(session, "SNK-401"), 200)], created_by="test")  # Chandigarh -> Punjab
     tax = purchasing.po_summary(session, remote)["tax"]
     assert tax["interstate"] and tax["igst"] > 0 and tax["cgst"] == 0
 
 
 def test_festival_calendar_and_multipliers():
-    upcoming = india.festival_calendar(date(2026, 9, 24))
-    names = [f["name"] for f in upcoming]
-    assert names[:5] == ["Navratri", "Dussehra", "Karwa Chauth", "Dhanteras", "Diwali"]
-    assert india.festival_multiplier("Electronics", date(2026, 11, 5)) == (1.9, "Diwali")
-    assert india.festival_multiplier("Office Supplies", date(2026, 12, 1)) == (1.0, None)
-    assert india.category_key("Snacks & Sweets") == "grocery"
+    punjab = [f["name"] for f in india.festival_calendar(date(2026, 9, 24), state="Punjab")]
+    assert punjab[:5] == ["Navratri", "Dussehra", "Karwa Chauth", "Dhanteras", "Diwali"]
+    assert {"Guru Nanak Gurpurab", "Lohri", "Baisakhi"} <= set(punjab) and "Onam" not in punjab
+    bengal = [f["name"] for f in india.festival_calendar(date(2026, 9, 24), state="West Bengal")]
+    assert "Durga Puja" in bengal and "Lohri" not in bengal and "Karwa Chauth" not in bengal
+    assert "Onam" in [f["name"] for f in india.festival_calendar(date(2026, 9, 24), state="Kerala")]
+    assert len(india.festival_calendar(date(2026, 9, 24), state=None)) == len(
+        india.upcoming_festivals(date(2026, 9, 24), state=None)
+    )
+    assert india.festival_multiplier("Puja Samagri", date(2026, 11, 5)) == (2.5, "Diwali")
+    assert india.festival_multiplier("Snacks & Biscuits", date(2026, 11, 5)) == (1.8, "Diwali")
+    assert india.festival_multiplier("Stationery", date(2026, 12, 1)) == (1.0, None)
+    assert india.category_key("Atta, Rice & Dal") == "grocery" and india.category_key("Home Care") == "home"
 
 
 def test_festival_plan_and_one_click_orders(client, manager, session):
@@ -86,7 +95,7 @@ async def test_offline_agent_handles_festivals_and_gst_in_hinglish(client):
 
 def test_forecast_payload_lists_festival_uplift(client, manager):
     products = {p["sku"]: p for p in client.get("/api/products", headers=manager).json()}
-    fc = client.get(f"/api/analytics/forecast/{products['ELC-1001']['id']}?horizon=90", headers=manager).json()
+    fc = client.get(f"/api/analytics/forecast/{products['ATA-103']['id']}?horizon=90", headers=manager).json()
     assert isinstance(fc["festivals"], list)
     json.dumps(fc)
 
@@ -151,7 +160,7 @@ def test_slab_changes_snap_ai_suggestions(client, manager):
 def test_gst_can_be_switched_off(client, manager, session):
     assert client.patch("/api/india/settings", json={"gst_enabled": False}, headers=manager).json()["gst_enabled"] is False
     try:
-        po = purchasing.create_po(session, [(find_product(session, "ELC-1006"), 20)], created_by="test")
+        po = purchasing.create_po(session, [(find_product(session, "SNK-401"), 200)], created_by="test")
         summary = purchasing.po_summary(session, po)
         assert summary["tax"]["tax"] == 0 and summary["grand_total"] == summary["total"]
         assert not summary["tax"]["eway_bill_required"] and summary["tax"]["enabled"] is False

@@ -10,7 +10,7 @@ import { BarList } from './charts'
 import { Badge, Button, Card, CardHeader, EmptyState, Segmented, Skeleton, Table, Td, Th } from './ui'
 
 const CATEGORY_LABEL: Record<string, string> = {
-  grocery: 'Groceries & sweets', electronics: 'Electronics', home: 'Home & kitchen', beauty: 'Health & beauty',
+  grocery: 'Groceries & sweets', puja: 'Puja samagri', electronics: 'Electronics', home: 'Home & kitchen', beauty: 'Health & beauty',
   accessories: 'Accessories & gifts', toys: 'Toys', office: 'Office', sports: 'Sports',
 }
 

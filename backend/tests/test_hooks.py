@@ -36,7 +36,7 @@ def test_webhook_signatures_roundtrip():
 
 
 def test_alert_engine_raises_and_resolves_stock_alerts(session):
-    product = inventory.find_product(session, "HOM-4005")
+    product = inventory.find_product(session, "HMC-704")  # stocked in one warehouse only
     qty = inventory.on_hand(session, product.id)
     inventory.adjust_stock(session, product.id, -qty, reason="test drain")
     evaluate_alerts(session, [product.id], emit=False)

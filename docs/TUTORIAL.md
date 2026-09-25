@@ -287,7 +287,7 @@ Sidebar → **AI Copilot**. Hindi / Hinglish / English — sab chalta hai:
 - `kaunsa stock kam hai aur kya order karna hai?`
 - `is mahine GST kitna banega?`
 - `show invoice INV/26-27/00003`
-- `What if demand for ACC-2001 rises 30%?`
+- `What if demand for ATA-105 rises 30%?`
 
 ![Copilot](screenshots/copilot.png)
 

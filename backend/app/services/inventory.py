@@ -14,9 +14,11 @@ class InventoryError(ValueError):
 
 
 def find_product(session: Session, ref: str | int) -> Product:
-    """Resolve a product by id, SKU (case-insensitive) or exact name."""
+    """Resolve a product by barcode (scanner), id, SKU (case-insensitive) or exact name."""
     product = None
-    if isinstance(ref, int) or (isinstance(ref, str) and ref.isdigit()):
+    if isinstance(ref, str) and ref.strip().isdigit() and len(ref.strip()) >= 8:  # EAN-8 / UPC / EAN-13 from a scanner
+        product = session.exec(select(Product).where(Product.barcode == ref.strip())).first()
+    if product is None and (isinstance(ref, int) or (isinstance(ref, str) and ref.isdigit())):
         product = session.get(Product, int(ref))
     if product is None and isinstance(ref, str):
         key = ref.strip()

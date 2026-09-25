@@ -25,7 +25,7 @@ async def test_offline_copilot_answers_with_tools(client):
 
 
 async def test_delegation_drafts_purchase_order(client):
-    events = await collect("draft a PO for FreshFarm", user=MANAGER)
+    events = await collect("draft a PO for Aggarwal", user=MANAGER)
     assert calls(events)[:1] == ["delegate"]
     specialist = [e for e in events if e["type"] == "agent_start" and e["depth"] == 1]
     assert specialist and specialist[0]["agent"] == "procurement"
@@ -35,8 +35,8 @@ async def test_delegation_drafts_purchase_order(client):
 
 
 async def test_write_tools_require_approval_then_execute(client, session):
-    before = inventory.on_hand(session, inventory.find_product(session, "ACC-2003").id)
-    events = await collect("write off 2 units of acc-2003 damaged", user=MANAGER)
+    before = inventory.on_hand(session, inventory.find_product(session, "PRC-602").id)
+    events = await collect("write off 2 units of prc-602 damaged", user=MANAGER)
     hooks = [e for e in events if e["type"] == "hook"]
     assert any(h["hook"] == "approval_gate" for h in hooks)
     approval = next(e["approval"] for e in events if e["type"] == "approval")
@@ -46,15 +46,15 @@ async def test_write_tools_require_approval_then_execute(client, session):
     resolved = await resolve_approval(approval["id"], True, MANAGER)
     assert resolved["status"] == "approved"
     session.expire_all()
-    assert inventory.on_hand(session, inventory.find_product(session, "ACC-2003").id) == before - 2
+    assert inventory.on_hand(session, inventory.find_product(session, "PRC-602").id) == before - 2
 
 
 async def test_guardrails_block_viewers_and_absurd_quantities(client):
-    events = await collect("write off 3 units of ACC-2003 damaged", user=VIEWER)
+    events = await collect("write off 3 units of PRC-602 damaged", user=VIEWER)
     blocked = [e for e in events if e["type"] == "hook" and e["action"] == "block"]
     assert blocked and blocked[0]["hook"] == "role_guard"
 
-    events = await collect("remove 90000 units of ACC-2003 lost", user=MANAGER)
+    events = await collect("remove 90000 units of PRC-602 lost", user=MANAGER)
     blocked = [e for e in events if e["type"] == "hook" and e["action"] == "block"]
     assert blocked and blocked[0]["hook"] == "quantity_guardrail"
 

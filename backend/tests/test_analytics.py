@@ -27,9 +27,9 @@ def test_forecast_handles_empty_and_short_series():
 
 def test_policy_metrics_for_seeded_scenarios(session):
     metrics = {m.sku: m for m in analytics.compute_metrics(session)}
-    assert metrics["ELC-1004"].status == "out"
-    assert metrics["OFF-3004"].status == "overstock"
-    assert metrics["ACC-2001"].status in ("critical", "low")
+    assert metrics["MSL-303"].status == "out"
+    assert metrics["HMC-703"].status == "overstock"
+    assert metrics["ATA-105"].status in ("critical", "low")
     for m in metrics.values():
         assert m.reorder_point >= m.safety_stock >= 0
         if m.suggested_order_qty:
@@ -55,9 +55,9 @@ def test_reorder_recommendations_are_sorted_by_urgency(session):
 
 def test_anomalies_detect_seeded_spike_shrinkage_and_drop(session):
     kinds = {(a["kind"], a["sku"]) for a in analytics.detect_anomalies(session)}
-    assert ("demand_spike", "HLT-5001") in kinds
-    assert ("shrinkage", "ELC-1002") in kinds
-    assert ("demand_drop", "TOY-8003") in kinds
+    assert ("demand_spike", "SNK-401") in kinds
+    assert ("shrinkage", "OIL-202") in kinds
+    assert ("demand_drop", "BEV-504") in kinds
 
 
 def test_health_score_and_markdowns(session):
@@ -72,7 +72,7 @@ def test_health_score_and_markdowns(session):
 
 
 def test_simulator_more_demand_hurts_service(session):
-    pid = next(m.product_id for m in analytics.compute_metrics(session) if m.sku == "ELC-1005")
+    pid = next(m.product_id for m in analytics.compute_metrics(session) if m.sku == "ATA-101")
     base = simulator.simulate(session, pid, runs=120)
     stressed = simulator.simulate(session, pid, runs=120, demand_multiplier=2.5, lead_time_days=30)
     assert len(base["projection"]) == base["horizon"]

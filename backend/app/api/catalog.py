@@ -1,11 +1,13 @@
 """Products, categories, suppliers, warehouses."""
 
+from datetime import date
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import func, select
 
 from app.hooks.bus import bus
-from app.models import Category, MovementType, Product, StockMovement, Supplier, Warehouse
+from app.models import Category, MovementType, Product, StockMovement, Supplier, Warehouse, ist_today
 from app.security import CurrentUser, DbSession, ManagerUser, actor
 from app.services import analytics, india, inventory
 
@@ -26,6 +28,9 @@ class ProductIn(BaseModel):
     lead_time_days: int | None = Field(default=None, ge=1)
     hsn_code: str | None = Field(default=None, max_length=8)
     gst_rate: float | None = Field(default=None, ge=0, le=100)  # optional: AI fills it in later
+    barcode: str | None = Field(default=None, max_length=32)
+    unit: str = Field(default="pcs", max_length=12)
+    expiry_date: date | None = None
     initial_qty: int = Field(default=0, ge=0)
     warehouse_id: int | None = None
 
@@ -43,6 +48,9 @@ class ProductPatch(BaseModel):
     lead_time_days: int | None = Field(default=None, ge=1)
     hsn_code: str | None = Field(default=None, max_length=8)
     gst_rate: float | None = Field(default=None, ge=0, le=100)
+    barcode: str | None = Field(default=None, max_length=32)
+    unit: str | None = Field(default=None, max_length=12)
+    expiry_date: date | None = None
     is_active: bool | None = None
     clear_overrides: bool = False
 
@@ -66,6 +74,10 @@ def product_row(p: Product, m: analytics.ProductMetrics | None) -> dict:
         "gst_rate": p.gst_rate,
         "gst_source": p.gst_source,
         "price_incl_gst": round(p.unit_price * (1 + (p.gst_rate or 0) / 100), 2),
+        "barcode": p.barcode,
+        "unit": p.unit,
+        "expiry_date": p.expiry_date.isoformat() if p.expiry_date else None,
+        "days_to_expiry": (p.expiry_date - ist_today()).days if p.expiry_date else None,
     }
     if m:
         base.update({k: v for k, v in m.to_dict().items() if k not in ("product_id", "sku", "name", "unit_cost", "unit_price")})
@@ -119,6 +131,9 @@ def create_product(session: DbSession, body: ProductIn, user: ManagerUser) -> di
         raise HTTPException(409, f"SKU {sku} already exists")
     data = body.model_dump(exclude={"initial_qty", "warehouse_id"})
     data["sku"] = sku
+    data["barcode"] = (body.barcode or "").strip() or None
+    if data["barcode"] and session.exec(select(Product).where(Product.barcode == data["barcode"])).first():
+        raise HTTPException(409, f"Barcode {data['barcode']} is already used by another product")
     product = Product(**data)
     if product.gst_rate is not None:
         product.gst_source = "manual"
@@ -147,6 +162,11 @@ def update_product(session: DbSession, product_id: int, body: ProductPatch, user
     if product is None:
         raise HTTPException(404, "Product not found")
     changes = body.model_dump(exclude_unset=True, exclude={"clear_overrides"})
+    if changes.get("barcode"):
+        changes["barcode"] = changes["barcode"].strip()
+        clash = session.exec(select(Product).where(Product.barcode == changes["barcode"], Product.id != product_id)).first()
+        if clash:
+            raise HTTPException(409, f"Barcode {changes['barcode']} is already used by {clash.name}")
     for key, value in changes.items():
         setattr(product, key, value)
     if "gst_rate" in changes or "hsn_code" in changes:
