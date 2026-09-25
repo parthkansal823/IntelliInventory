@@ -57,7 +57,7 @@ AGENTS: dict[str, AgentSpec] = {
         instructions=(
             "You are the user's single point of contact. Answer quick questions yourself with your read tools. "
             "Delegate focused work with the `delegate` tool: forecasting / what-if → forecaster; reordering, purchase "
-            "orders, suppliers and festival stock-ups → procurement; anomalies, stock adjustments, transfers and cycle counts → auditor; "
+            "orders, suppliers and festival stock-ups → procurement; anomalies, stock adjustments, transfers, cycle counts and sales returns → auditor; "
             "deep analysis (ABC, margins, movement history) → analyst. You may delegate to several specialists in "
             "sequence, then synthesise one clear answer. Don't repeat the specialist's answer verbatim if it is long."
         ),
@@ -73,6 +73,8 @@ AGENTS: dict[str, AgentSpec] = {
             "get_invoice",
             "day_close",
             "expiring_products",
+            "supplier_dues",
+            "customer_history",
         ],
         color="#6366f1",
         icon="sparkles",
@@ -98,6 +100,8 @@ AGENTS: dict[str, AgentSpec] = {
             "get_invoice",
             "day_close",
             "expiring_products",
+            "supplier_dues",
+            "customer_history",
         ],
         color="#0ea5e9",
         icon="chart",
@@ -136,6 +140,7 @@ AGENTS: dict[str, AgentSpec] = {
             "search_products",
             "get_product_details",
             "list_suppliers",
+            "supplier_dues",
             "list_purchase_orders",
             "create_purchase_order",
             "update_purchase_order_status",
@@ -162,6 +167,7 @@ AGENTS: dict[str, AgentSpec] = {
             "adjust_stock",
             "transfer_stock",
             "start_cycle_count",
+            "return_items",
         ],
         color="#ec4899",
         icon="shield",

@@ -37,6 +37,11 @@ Every AI action passes through lifecycle **hooks**, and anything that changes st
   Scan page and the product form; EAN-13 barcode, unit and expiry date on every product.
 - **Expiry alerts** (dashboard + "Expiring soon" filter + Copilot) and **"Aaj ka hisaab"** day-end closing: sale,
   cash in the galla, UPI/card, udhaar given and collected, top items — print or WhatsApp.
+- **Voice / quick-type billing**: tap 🎤 and say *"do kilo aata aur ek maggi"* (or type `2 atta 1 maggi`) — Hindi,
+  Hinglish or English, matched offline (no paid speech API).
+- **Returns (wapsi)** with GST credit notes, **supplier khata** (payables with due dates, FIFO payments, UPI QR,
+  overdue alerts), **optional offers & loyalty points**, **offline billing** that syncs itself (idempotent), customer
+  purchase history and one-click **backup**.
 - **Region-aware festivals**: all-India festivals plus the ones for the shop's state (Lohri, Baisakhi, Gurpurab, Durga
   Puja, Chhath, Pongal, Ugadi/Gudi Padwa, Bihu, Onam, Ganesh Chaturthi, Karwa Chauth…).
 

@@ -115,6 +115,9 @@ def receive_po(session: Session, po: PurchaseOrder, *, actor: str = "user") -> P
     po.status = POStatus.RECEIVED
     po.received_at = utcnow()
     session.add(po)
+    from app.services.payables import bill_from_po
+
+    bill_from_po(session, po)  # supplier khata: the goods are now owed for
     session.commit()
     for product, mv in movements:
         session.refresh(mv)

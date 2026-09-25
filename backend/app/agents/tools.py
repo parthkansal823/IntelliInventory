@@ -572,6 +572,53 @@ def day_close(day: Annotated[str | None, Field(description="Date YYYY-MM-DD; def
         return billing.day_close(s, _date.fromisoformat(day) if day else None)
 
 
+@tools.tool(tags=("read", "india", "billing"))
+def supplier_dues() -> dict:
+    """Supplier khata (payables): how much the shop owes each supplier, what is overdue and the next due dates."""
+    from app.services import payables
+
+    with session_scope() as s:
+        rows = payables.supplier_dues(s)
+        for r in rows:
+            r["bills"] = r["bills"][:5]
+            r.pop("upi_link", None)
+        return {"summary": payables.payables_summary(s), "suppliers": rows}
+
+
+@tools.tool(tags=("read", "india", "billing"))
+def customer_history(customer: Annotated[str, Field(description="Customer name or phone number")]) -> dict:
+    """One customer's purchase history: bills, favourite items, total spent, loyalty points and udhaar balance."""
+    from app.services import billing
+
+    with session_scope() as s:
+        d = billing.customer_history(s, billing.find_customer(s, customer))
+        d["invoices"] = d["invoices"][:10]
+        return d
+
+
+@tools.tool(requires_approval=True, tags=("write", "billing"))
+def return_items(
+    invoice: Annotated[str, Field(description="Invoice number, e.g. KGS/26-27/00007")],
+    sku: Sku,
+    quantity: Annotated[int, Field(gt=0, description="How many units come back")],
+    refund_mode: Literal["cash", "upi", "bank"] = "cash",
+    reason: Annotated[str | None, Field(description="Why the customer returned it")] = None,
+) -> dict:
+    """Sales return (wapsi): take back items from a bill, issue a credit note and put the stock back.
+    The value first reduces what the customer owes on that bill; the rest is refunded. Requires human approval."""
+    from app.services import billing
+
+    with session_scope() as s:
+        inv = billing.find_invoice(s, invoice)
+        line = next((ln for ln in inv.lines if ln.sku.upper() == sku.strip().upper()), None)
+        if line is None:
+            return {"error": f"{sku} is not on {inv.number}"}
+        note = billing.return_items(
+            s, inv, [{"line_id": line.id, "quantity": quantity}], refund_mode=refund_mode, reason=reason, actor=get_actor()
+        )
+        return {"returned": True, "credit_note": billing.credit_note_brief(note)}
+
+
 @tools.tool(tags=("read", "stock"))
 def expiring_products(days: Annotated[int, Field(ge=1, le=90, description="Look-ahead window in days")] = 15) -> list[dict]:
     """Products whose shelf stock expires within `days` (or has expired), soonest first, with what to do."""

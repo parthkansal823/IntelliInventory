@@ -74,6 +74,7 @@ class Supplier(SQLModel, table=True):
     gstin: str | None = None  # 15-char GST identification number
     state: str | None = None  # Indian state, decides CGST+SGST vs IGST
     upi_id: str | None = None  # e.g. freshfarm@okhdfcbank - POs show a UPI "scan to pay" QR
+    credit_days: int = 15  # days the supplier gives before a purchase bill is due (supplier udhaar)
 
 
 class Warehouse(SQLModel, table=True):
@@ -178,6 +179,7 @@ class Customer(SQLModel, table=True):
     gstin: str | None = None  # B2B buyers - printed on the tax invoice
     state: str | None = None  # Indian state or "Outside India" - decides the place of supply
     address: str | None = None
+    points: int = 0  # loyalty points balance (only used when loyalty is switched on)
     created_at: datetime = Field(default_factory=utcnow)
 
 
@@ -205,6 +207,10 @@ class Invoice(SQLModel, table=True):
     round_off: float = 0.0
     total: float = 0.0
     amount_paid: float = 0.0
+    amount_returned: float = 0.0  # value of credit notes (sales returns) against this bill
+    amount_refunded: float = 0.0  # money handed back for those returns (the rest reduced the balance)
+    points_earned: int = 0
+    client_ref: str | None = Field(default=None, index=True, unique=True)  # offline bills: idempotency key
     notes: str | None = None
     created_by: str = "user"
     created_at: datetime = Field(default_factory=utcnow, index=True)
@@ -228,6 +234,7 @@ class InvoiceLine(SQLModel, table=True):
     taxable: float = 0.0
     tax: float = 0.0
     total: float = 0.0
+    returned_qty: int = 0
 
     invoice: Invoice = Relationship(back_populates="lines")
 
@@ -240,6 +247,72 @@ class Payment(SQLModel, table=True):
     reference: str | None = None  # UPI UTR / cheque no.
     created_by: str = "user"
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class CreditNote(SQLModel, table=True):
+    """Sales return against a bill (GST credit note). Stock goes back, the refund is cash/UPI or adjusts udhaar."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    number: str = Field(index=True, unique=True)  # CN/26-27/00001
+    invoice_id: int = Field(foreign_key="invoice.id", index=True)
+    customer_id: int | None = Field(default=None, foreign_key="customer.id")
+    customer_name: str = "Walk-in customer"
+    taxable: float = 0.0
+    cgst: float = 0.0
+    sgst: float = 0.0
+    igst: float = 0.0
+    tax: float = 0.0
+    total: float = 0.0
+    refund_mode: str = "cash"  # cash | upi | adjust (reduces the udhaar balance)
+    refunded: float = 0.0  # money handed back (cash/UPI); the rest adjusted the balance
+    reason: str | None = None
+    created_by: str = "user"
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+
+    lines: list["CreditNoteLine"] = Relationship(back_populates="note", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+
+class CreditNoteLine(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    note_id: int = Field(foreign_key="creditnote.id", index=True)
+    invoice_line_id: int = Field(foreign_key="invoiceline.id")
+    product_id: int = Field(foreign_key="product.id")
+    warehouse_id: int = Field(foreign_key="warehouse.id")
+    name: str
+    quantity: int
+    taxable: float = 0.0
+    tax: float = 0.0
+    total: float = 0.0
+
+    note: CreditNote = Relationship(back_populates="lines")
+
+
+# --- Supplier khata (payables) ---------------------------------------------------------------
+
+
+class SupplierBill(SQLModel, table=True):
+    """A purchase bill we owe the supplier (auto-created when a PO is received, or entered by hand)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    supplier_id: int = Field(foreign_key="supplier.id", index=True)
+    po_id: int | None = Field(default=None, foreign_key="purchaseorder.id")
+    bill_no: str | None = None  # the supplier's own invoice number
+    bill_date: date
+    due_date: date = Field(index=True)
+    amount: float
+    paid: float = 0.0
+    notes: str | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class SupplierPayment(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    supplier_id: int = Field(foreign_key="supplier.id", index=True)
+    amount: float
+    mode: str = "cash"  # cash | upi | bank | cheque
+    reference: str | None = None
+    created_by: str = "user"
+    created_at: datetime = Field(default_factory=utcnow, index=True)
 
 
 # --- Automation / observability ---------------------------------------------

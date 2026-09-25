@@ -62,7 +62,7 @@ export function LangToggle({ className }: { className?: string }) {
 }
 
 const STEPS: { icon: ReactNode; title: string; text: string }[] = [
-  { icon: <ReceiptIndianRupee className="size-7" />, title: 'Make a bill', text: 'Billing → type the item name or scan its barcode → choose Cash / UPI / Udhaar → Save bill. Print it or send it on WhatsApp.' },
+  { icon: <ReceiptIndianRupee className="size-7" />, title: 'Make a bill', text: 'Billing → type the item name, scan its barcode or tap 🎤 and say "do kilo aata, ek maggi" → choose Cash / UPI / Udhaar → Save bill. Print it or send it on WhatsApp.' },
   { icon: <ScanBarcode className="size-7" />, title: 'Scan barcodes', text: 'Use a USB barcode scanner (just scan — it types the code), or tap Scan to use the phone camera.' },
   { icon: <BookUser className="size-7" />, title: 'Udhaar khata', text: 'Billing → Khata shows who owes you money. Send a WhatsApp reminder or collect with one tap.' },
   { icon: <TriangleAlert className="size-7" />, title: 'Stock & expiry', text: 'The dashboard warns you when stock is low or items are about to expire. Stock shows every item with its barcode and expiry.' },

@@ -85,6 +85,18 @@ async def alert_sweep() -> str:
     return await asyncio.to_thread(_alert_sweep_sync)
 
 
+def _payables_due_sync() -> str:
+    from app.services.payables import raise_due_alerts
+
+    with session_scope() as s:
+        raised = raise_due_alerts(s)
+    return f"{len(raised)} supplier payments due"
+
+
+async def payables_due() -> str:
+    return await asyncio.to_thread(_payables_due_sync)
+
+
 BRIEFING_TASK = (
     "Write this morning's inventory briefing for the operations team. Use your tools to gather: the inventory "
     "summary, items that need reordering, open alerts and any anomalies. Format: a 2-sentence headline, then "
@@ -117,6 +129,7 @@ JOBS: dict[str, Job] = {
     for j in (
         Job("anomaly_scan", "Scan for demand spikes, drops and shrinkage; raise alerts", timedelta(hours=6), anomaly_scan),
         Job("alert_sweep", "Re-evaluate stock alerts for every product", timedelta(hours=1), alert_sweep),
+        Job("payables_due", "Remind which suppliers must be paid in the next 2 days", timedelta(hours=24), payables_due),
         Job("daily_briefing", "Copilot writes the morning inventory briefing", timedelta(hours=24), daily_briefing),
     )
 }

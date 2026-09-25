@@ -1,10 +1,12 @@
-import { Bot, Building2, Check, Keyboard, Landmark, Monitor, Moon, Plug, Plus, RefreshCw, Sparkles, Sun, Users } from 'lucide-react'
+import { Bot, Building2, Check, DatabaseBackup, Keyboard, Landmark, Monitor, Moon, Plug, Plus, RefreshCw, Sparkles, Sun, Users } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Badge, Button, Card, CardHeader, CodeBlock, Dialog, Field, Input, PageHeader, Select, Skeleton, Switch, Table, Tabs, TabsContent, TabsList, TabsTrigger, Td, Th } from '@/components/ui'
 import { keys, useAction, useAgents, useBillingProfile, useCategories, useGstSettings, useProducts, useSupplierScores, useSuppliers, useSystemInfo, useUsers, useWarehouses } from '@/hooks/queries'
+import { OffersSettings } from '@/components/OffersSettings'
 import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/hooks/useTheme'
-import { patch, post, put } from '@/lib/api'
+import { download, patch, post, put } from '@/lib/api'
 import type { BusinessProfile, GstSettings, Role } from '@/lib/types'
 import { cn, moneyCompact, number } from '@/lib/utils'
 import { useT } from '@/lib/i18n'
@@ -63,6 +65,7 @@ function Business() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <ShopProfile states={s.states} />
+      <OffersSettings />
       <Card>
         <CardHeader title={t('GST registration')} description={t('Optional — small shops below the GST threshold can switch it off. Nothing is lost; turn it back on any time.')} icon={<Landmark className="size-4" />} />
         <div className="space-y-4 px-5 pb-5">
@@ -283,6 +286,7 @@ function Catalog() {
               state: form.state || null,
               upi_id: form.upi || null,
               lead_time_days: Number(form.lead || 7),
+              credit_days: Number(form.credit || 15),
             })
           : post('/api/categories', { name: form.name, color: form.color || '#6366f1' }),
     { success: t('Created'), invalidate: [keys.warehouses, keys.suppliers, keys.suppliersScores, keys.categories], onSuccess: () => { setDialog(null); setForm({}) } },
@@ -331,6 +335,7 @@ function Catalog() {
               <Field label={t('UPI ID (optional)')} hint={t('Purchase orders show a scan-to-pay QR for this UPI ID.')}><Input value={form.upi ?? ''} onChange={set('upi')} placeholder="supplier@okhdfcbank" /></Field>
               <Field label={t('Email')}><Input value={form.email ?? ''} onChange={set('email')} /></Field>
               <Field label={t('Lead time (days)')}><Input type="number" value={form.lead ?? '7'} onChange={set('lead')} /></Field>
+              <Field label={t('Credit days (pay within)')}><Input type="number" value={form.credit ?? '15'} onChange={set('credit')} /></Field>
             </>
           )}
           {dialog === 'category' && <Field label={t('Color')}><Input type="color" value={form.color ?? '#6366f1'} onChange={set('color')} className="h-10 p-1" /></Field>}
@@ -386,6 +391,7 @@ function UsersAdmin() {
 
 function Preferences() {
   const t = useT()
+  const { can } = useAuth()
   const { theme, setTheme } = useTheme()
   const shortcuts = [
     ['⌘K / Ctrl K', 'Command palette — search, navigate, ask Copilot'],
@@ -408,6 +414,17 @@ function Preferences() {
           ))}
         </div>
       </Card>
+      {can('admin') && (
+        <Card>
+          <CardHeader title={t('Backup')} icon={<DatabaseBackup className="size-4" />} description={t('Download a full copy of your data (bills, khata, stock). Keep it on a pen drive or Google Drive every week.')} />
+          <div className="px-5 pb-5">
+            <Button variant="secondary" onClick={() => download('/api/system/backup', `intelliinventory-${new Date().toISOString().slice(0, 10)}.db`).catch((e: Error) => toast.error(e.message))}>
+              <DatabaseBackup className="size-4" /> {t('Download backup')}
+            </Button>
+            <p className="mt-2 text-xs text-subtle">{t('To restore: stop the app, put this file in backend/data/ as intelliinventory.db and start again.')}</p>
+          </div>
+        </Card>
+      )}
       <Card>
         <CardHeader title={t('Keyboard shortcuts')} />
         <ul className="divide-y divide-border px-5 pb-4 text-sm">

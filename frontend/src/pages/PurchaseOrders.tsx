@@ -1,6 +1,8 @@
 import { MessageCircle, PackageCheck, Printer, Send, ShoppingCart, Sparkles, ThumbsUp, Truck, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { Actor, POStatusBadge } from '@/components/domain'
+import { SupplierKhata } from '@/components/SupplierKhata'
 import { Badge, Button, Card, Dialog, EmptyState, PageHeader, Skeleton, Table, Tabs, TabsList, TabsTrigger, Td, Th } from '@/components/ui'
 import { keys, useAction, useBillingProfile, usePOStats, usePurchaseOrders } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
@@ -19,13 +21,16 @@ const TABS: { value: string; label: string }[] = [
   { value: 'received', label: 'Received' },
   { value: 'cancelled', label: 'Cancelled' },
   { value: 'all', label: 'All' },
+  { value: 'khata', label: 'Supplier khata' },
 ]
 const invalidate = [['purchase-orders'], keys.dashboard, keys.reorder, keys.products, ['health']]
 
 export default function PurchaseOrders() {
   const t = useT()
-  const [tab, setTab] = useState('open')
-  const orders = usePurchaseOrders(tab)
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') ?? 'open'
+  const setTab = (next: string) => setParams({ tab: next }, { replace: true })
+  const orders = usePurchaseOrders(tab === 'khata' ? 'all' : tab)
   const stats = usePOStats()
   const { can } = useAuth()
   const [selected, setSelected] = useState<PurchaseOrder | null>(null)
@@ -52,15 +57,17 @@ export default function PurchaseOrders() {
       <Card>
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="px-3">
-            {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value}>
-                {t.label}
-                <span className="rounded-full bg-surface-2 px-1.5 text-[10px] tabular-nums text-muted">{count(t.value)}</span>
+            {TABS.map((x) => (
+              <TabsTrigger key={x.value} value={x.value}>
+                {t(x.label)}
+                {x.value !== 'khata' && <span className="rounded-full bg-surface-2 px-1.5 text-[10px] tabular-nums text-muted">{count(x.value)}</span>}
               </TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
-        {orders.isLoading ? (
+        {tab === 'khata' ? (
+          <SupplierKhata />
+        ) : orders.isLoading ? (
           <div className="space-y-2 p-4">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-10" />)}</div>
         ) : !orders.data?.length ? (
           <EmptyState icon={<ShoppingCart className="size-5" />} title={t('No purchase orders here')} description={t('Generate drafts from recommendations or ask the Procurement agent.')} />

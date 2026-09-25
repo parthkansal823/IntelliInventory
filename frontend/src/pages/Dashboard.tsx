@@ -1,4 +1,5 @@
 import {
+  Factory,
   Activity,
   Bot,
   Boxes,
@@ -23,7 +24,7 @@ import { BarList, SalesTrendChart, StockHealth } from '@/components/charts'
 import { Actor, Kpi, MarkdownView, SeverityIcon, StatusBadge } from '@/components/domain'
 import { NextFestivalCard } from '@/components/india'
 import { Badge, Button, Card, CardHeader, EmptyState, Skeleton } from '@/components/ui'
-import { keys, useAction, useAlerts, useBillingSummary, useExpiring, useDashboard, useHealth, useProducts, useReorder, useReports } from '@/hooks/queries'
+import { keys, useAction, useAlerts, useBillingSummary, useExpiring, useDashboard, usePayables, useHealth, useProducts, useReorder, useReports } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { useLiveEvents } from '@/hooks/useLiveEvents'
 import { post } from '@/lib/api'
@@ -68,10 +69,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <TodayBillingCard />
         <NextFestivalCard />
         <ExpiringCard />
+        <PayablesCard />
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
@@ -404,6 +406,30 @@ function ExpiringCard() {
               {soon.map((i) => `${i.name} (${i.days_left < 0 ? t('Expired') : `${i.days_left} ${t('days left')}`})`).join(' · ')}
             </div>
           )}
+        </div>
+        <ChevronRight className="size-5 shrink-0 text-muted transition group-hover:translate-x-0.5" />
+      </Card>
+    </Link>
+  )
+}
+
+/** Supplier khata at a glance: how much the shop has to pay and what is overdue. */
+function PayablesCard() {
+  const t = useT()
+  const s = usePayables().data?.summary
+  if (!s) return null
+  const late = s.overdue > 0
+  return (
+    <Link to="/purchase-orders?tab=khata" className="group block h-full">
+      <Card className={cn('flex h-full items-center gap-4 p-4 transition', late ? 'border-critical/30 group-hover:border-critical' : 'group-hover:border-brand/50')}>
+        <div className={cn('grid size-11 shrink-0 place-items-center rounded-xl', late ? 'bg-critical/10 text-critical' : 'bg-brand-soft text-brand')}>
+          <Factory className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold">{s.total ? `${t('Dena baaki')}: ${money(s.total)}` : t('Nothing to pay suppliers')}</div>
+          <div className="truncate text-sm text-muted">
+            {late ? <span className="font-medium text-critical">{t('Overdue')} {money(s.overdue)}</span> : s.total ? `${t('Due in 7 days')} ${money(s.due_this_week)}` : t('All supplier bills paid')}
+          </div>
         </div>
         <ChevronRight className="size-5 shrink-0 text-muted transition group-hover:translate-x-0.5" />
       </Card>

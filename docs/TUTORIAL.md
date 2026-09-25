@@ -23,13 +23,14 @@ AI Copilot, GST, festival planning, aur **free mein online kaise daalna hai** (e
 4. [Sabse pehle: Shop details bharo](#4-sabse-pehle-shop-details-bharo)
 5. [Billing — bill kaise banaye (3 steps)](#5-billing--bill-kaise-banaye-3-steps)
 6. [Khata (udhaar) — kisko kitna dena hai](#6-khata-udhaar)
+   - [Bolke bill, wapsi (return), offers & points, offline billing](#bolke-bill-mic)
 7. [Stock — products, GST, scan](#7-stock--products-gst-scan)
-8. [Purchase orders — supplier se maal mangwana](#8-purchase-orders)
+8. [Purchase orders — supplier se maal mangwana + supplier khata](#8-purchase-orders)
 9. [Insights & festivals — Diwali ki taiyari](#9-insights--festivals)
 10. [GST — optional, AI se bharo, rate badle toh?](#10-gst)
 11. [AI Copilot — Hindi/Hinglish mein poocho](#11-ai-copilot)
 12. [Hermes AI free mein kaise chalaye](#12-hermes-ai-free-mein)
-13. [Users & roles](#13-users--roles)
+13. [Users & roles + backup](#13-users--roles)
 14. [Automation, hooks, webhooks (advanced)](#14-automation-hooks-webhooks)
 15. [Demo link online (free)](#15-demo-link-online-free)
 16. [Payment gateway ka sawaal](#16-payment-gateway-ka-sawaal)
@@ -245,6 +246,60 @@ ke purane din ka hisaab bhi dekh sakte ho. Copilot se bhi: *"aaj ka hisaab batao
 
 ![Aaj ka hisaab](screenshots/hisaab-hi.png)
 
+Hisaab mein ab **wapsi (returns)**, cash refund aur **supplier ko diya paisa** bhi dikhta hai — galle ka cash inko
+ghata ke dikhaya jaata hai.
+
+### Bolke bill (mic)
+
+**Billing → 1 · Add items → 🎤 Speak** dabao aur bolo: *"do kilo aata aur ek maggi"* ya *"cheeni do packet, namak
+ek"*. Saaman quantity ke saath bill mein aa jaata hai. Hindi (हिं) chuna ho toh Hindi mein suno, warna English/Hinglish.
+
+- Mic nahi hai? Search box mein **likho** `2 atta 1 maggi` aur **Enter** — same kaam.
+- Jo shabd samajh nahi aaya woh "Not found" mein dikhta hai — use haath se add karo.
+- Mic Chrome / Edge (Android, Windows) mein chalta hai. Samajhna offline hota hai — koi paid service nahi.
+
+![Bolke / likh ke bill](screenshots/voice-bill.png)
+
+### Wapsi (return) — credit note
+
+Bill kholo (**All bills** → bill) → **Return items** → jo saaman wapas aaya uski quantity (+) → refund **Cash / UPI /
+Bank** → **Save return**.
+
+- Stock wapas shelf pe, **credit note** (CN/26-27/00001) banta hai — print ya WhatsApp.
+- Customer ka us bill pe udhaar baaki ho toh pehle **udhaar mein se ghat-ta** hai, bacha paisa wapas.
+- Poora bill galat ho toh ab bhi **Cancel bill** (manager). ₹2,000 se bada cash refund sirf manager.
+- GST report aur sales register (CSV) mein credit note apne aap minus hota hai.
+
+![Return / credit note](screenshots/return.png)
+
+### Offers & loyalty points (optional — default band)
+
+**Settings → Business & GST → Offers & loyalty** ON karo (sirf tab chalu hota hai jab aap chaho):
+
+| Offer | Example |
+|---|---|
+| Poore bill pe % | ₹500 se upar 5% off |
+| Buy X get Y | Maggi 2 lo 1 free |
+| Item / category pe % | Personal Care pe 10% |
+
+Bill banate waqt offer **apne aap** lagta hai (hara chip dikhta hai) — **Remove offers** se us bill se hata sakte ho.
+**Loyalty points**: har ₹100 pe X point; purana customer (phone se pehchana) agli baar **Use points** se payment
+kar sakta hai. Bill cancel/return pe points wapas adjust hote hain.
+
+![Offer + points on a bill](screenshots/offers-bill.png)
+
+### Internet chala jaye? (offline billing)
+
+Bill save karte waqt internet/server nahi mila toh bill **isi phone/computer mein** save hota hai (`OFF-1`, `OFF-2`…).
+Upar **"1 bill(s) to sync"** dikhega. Internet aate hi (ya har 30 second) bill **apne aap** server pe chala jaata hai
+aur asli bill number milta hai — do baar sync ho tab bhi bill ek hi baar banta hai. Products aur customers ki list
+bhi aakhri baar wali yaad rehti hai, isliye billing screen offline khulti hai.
+
+### Customer history
+
+**Khata** mein customer ke naam pe click → kitne bill, kul kitna kharida, kya sabse zyada leta hai, points, udhaar.
+Copilot se: *"Parth ki history dikhao"*.
+
 ---
 
 ## 7. Stock — products, GST, scan
@@ -280,6 +335,18 @@ Flow: **Draft → Approved → Ordered → Received** (receive karte hi stock ba
 - ₹50,000 se zyada ka maal → **e-way bill** warning.
 - **Send on WhatsApp** → supplier ko PO ka message.
 - Supplier ka UPI ID ho toh **UPI QR** se payment.
+
+### Supplier khata (supplier ka udhaar)
+
+**Purchase orders → Supplier khata**: kis supplier ko **kitna dena hai**, kab tak, kya **overdue** (laal) hai.
+
+- PO **Received** hote hi uska bill apne aap yahan judta hai — due date = aaj + supplier ke **credit days**
+  (Settings → Catalog → supplier, default 15 din).
+- Bina PO ka maal aaya? **Add purchase bill** se supplier ka bill number + amount daalo.
+- **Pay** → Cash / UPI (supplier ke UPI ka QR) / Bank / Cheque — paisa **sabse purane bill** mein pehle lagta hai.
+- Dashboard pe **"Dena baaki"** card, aur 2 din pehle **alert**. Copilot se: *"supplier ko kitna dena hai?"*
+
+![Supplier khata](screenshots/supplier-khata.png)
 
 ---
 
@@ -365,6 +432,14 @@ Asli AI (Hermes, Nous Research) chahiye toh — **free, aapke computer pe:**
 | staff | billing, scan, counting, PO draft |
 | manager | + approvals, bill cancel, GST settings, CSV export |
 | admin | sab kuch + users |
+
+---
+
+### Backup (zaroori!)
+
+**Settings → Preferences → Download backup** (sirf admin) — poora data ek file (`intelliinventory-2026-09-25.db`)
+mein. Har hafte pen drive / Google Drive pe rakho. Wapas lana ho: app band karo → file ko
+`backend/data/intelliinventory.db` naam se rakho → app chalao.
 
 ---
 

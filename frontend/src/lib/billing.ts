@@ -1,6 +1,6 @@
 /** Billing helpers: live bill preview (same maths as the server), WhatsApp texts, UPI links and printable invoices. */
 import QRCode from 'qrcode'
-import type { BusinessProfile, CustomerDue, InvoiceDetail } from './types'
+import type { BusinessProfile, CreditNote, CustomerDue, InvoiceDetail } from './types'
 import { money } from './utils'
 
 export interface DraftLine { product_id: number; sku: string; name: string; quantity: number; unit_price: number; discount_pct: number; gst_rate: number; stock: number }
@@ -135,5 +135,33 @@ export async function printInvoice(inv: InvoiceDetail, size: 'a4' | 'thermal' = 
   <div class="foot"><div>${qr ? `<img src="${qr}" alt="UPI QR"/><div class="m">Scan with any UPI app to pay ${money(inv.balance)}</div>` : ''}<div class="m" style="margin-top:6px">${esc(s.terms)}</div></div>${size === 'a4' ? `<div class="r"><div style="height:40px"></div><div class="m">For ${esc(s.name)}</div><div>Authorised signatory</div></div>` : ''}</div>
   ${size === 'thermal' ? '<p class="c">Dhanyavaad! Phir padhariye 🙏</p>' : ''}
   <script>window.onload=()=>{window.print()}</script></body></html>`)
+  w.document.close()
+}
+
+export function creditNoteWhatsApp(note: CreditNote, inv: InvoiceDetail): string {
+  const items = note.lines.map((l) => `• ${l.name} × ${l.quantity} = ${money(l.total)}`).join('\n')
+  const money_ = note.refunded ? `Refund: *${money(note.refunded)}* (${note.refund_mode.toUpperCase()})` : 'Adjusted against your balance'
+  return `*${inv.seller.name}*\nCredit note ${note.number}\nAgainst bill ${inv.number}\n\n${items}\n\nReturn value: *${money(note.total)}*\n${money_}\n\nDhanyavaad! 🙏`
+}
+
+/** Printable credit note (sales return) on an 80 mm roll - also fits A4. */
+export function printCreditNote(note: CreditNote, inv: InvoiceDetail) {
+  const w = window.open('', '_blank', 'width=420,height=700')
+  if (!w) return
+  const s = inv.seller
+  const date = new Date(note.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' })
+  const rows = note.lines.map((l) => `<tr><td>${esc(l.name)} × ${l.quantity}</td><td class="r">${money(l.total)}</td></tr>`).join('')
+  const tax = note.tax ? (note.igst ? `<tr><td>IGST</td><td class="r">${money(note.igst)}</td></tr>` : `<tr><td>CGST</td><td class="r">${money(note.cgst)}</td></tr><tr><td>SGST</td><td class="r">${money(note.sgst)}</td></tr>`) : ''
+  w.document.write(`<!doctype html><html><head><title>${esc(note.number)}</title><style>
+    @page{size:80mm auto;margin:3mm}body{width:74mm;margin:0;font:12px/1.4 ui-monospace,monospace;color:#111}h1{font-size:15px;margin:0;text-align:center}.c{text-align:center}.m{color:#666;font-size:11px}
+    table{width:100%;border-collapse:collapse;margin:8px 0}td{padding:3px 0;border-bottom:1px dashed #999}.r{text-align:right}.g td{font-weight:700;border-top:1px solid #111}
+  </style></head><body>
+  <h1>${esc(s.name)}</h1>${s.gstin ? `<div class="c m">GSTIN ${esc(s.gstin)}</div>` : ''}
+  <p class="c"><b>CREDIT NOTE</b><br/>${esc(note.number)}<br/><span class="m">${date}</span></p>
+  <div>Against bill <b>${esc(inv.number)}</b><br/>${esc(note.customer_name)}${inv.customer_phone ? ` · ${esc(inv.customer_phone)}` : ''}</div>
+  <table>${rows}<tr><td>Taxable value</td><td class="r">${money(note.taxable)}</td></tr>${tax}<tr class="g"><td>Return value</td><td class="r">${money(note.total)}</td></tr></table>
+  <div>${note.refunded ? `Refunded ${money(note.refunded)} by ${esc(note.refund_mode.toUpperCase())}` : 'Adjusted against the balance due'}</div>
+  ${note.reason ? `<div class="m">Reason: ${esc(note.reason)}</div>` : ''}
+  <script>window.onload=()=>window.print()</script></body></html>`)
   w.document.close()
 }

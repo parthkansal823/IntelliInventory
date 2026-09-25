@@ -472,3 +472,52 @@ def seed_billing(session: Session, rng: random.Random) -> None:
             created_at=when,
             emit=False,
         )
+    seed_payables(session)
+    parth = session.get(Customer, customers["parth"].id)
+    parth.points = 120  # loyalty is off by default; the points show once the shop switches it on
+    session.add(parth)
+    session.commit()
+
+
+# supplier, bill no, days ago, credit days, amount, paid - one overdue, one due soon, one part-paid
+DEMO_SUPPLIER_BILLS = [
+    ("Aggarwal Traders", "AT/2627/0412", 12, 7, 18450.0, 5000.0),
+    ("Mohali Oil & Ghee Depot", "MOG-1187", 13, 15, 9860.0, 0.0),
+    ("Ludhiana FMCG Distributors", "LFD/26/2291", 5, 21, 14320.0, 4000.0),
+    ("Tricity Dairy Supplies", "TDS-5521", 3, 7, 3240.0, 3240.0),
+]
+
+
+def seed_payables(session: Session) -> None:
+    """Supplier khata: a few purchase bills (one overdue) and the payments made against them."""
+    from app.models import SupplierBill, SupplierPayment
+
+    today = utcnow().astimezone(IST).date()
+    by_name = {s.name: s for s in session.exec(select(Supplier))}
+    for name, bill_no, days_ago, credit, amount, paid in DEMO_SUPPLIER_BILLS:
+        supplier = by_name[name]
+        supplier.credit_days = credit
+        bill_date = today - timedelta(days=days_ago)
+        session.add(
+            SupplierBill(
+                supplier_id=supplier.id,
+                bill_no=bill_no,
+                bill_date=bill_date,
+                due_date=bill_date + timedelta(days=credit),
+                amount=amount,
+                paid=paid,
+            )
+        )
+        if paid:
+            session.add(
+                SupplierPayment(
+                    supplier_id=supplier.id,
+                    amount=paid,
+                    mode="upi" if paid > 4000 else "cash",
+                    reference="UTR 6271" + bill_no[-4:] if paid > 4000 else None,
+                    created_by="user:parth@intelliinventory.dev",
+                    created_at=datetime.combine(bill_date + timedelta(days=1), time(18, 0), tzinfo=IST).astimezone(UTC),
+                )
+            )
+        session.add(supplier)
+    session.commit()

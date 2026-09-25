@@ -6,6 +6,8 @@ import asyncio
 import contextlib
 import hmac
 import logging
+import shutil
+import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -15,16 +17,18 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import func, select
+from starlette.background import BackgroundTask
 
 from app.agents.providers import describe_providers, resolve_provider_name
-from app.api import agents, auth, automation, billing, catalog, india, insights, operations
+from app.api import agents, auth, automation, billing, catalog, india, insights, operations, payables
 from app.config import get_settings
-from app.db import init_db, session_scope
+from app.db import get_engine, init_db, session_scope
 from app.hooks import builtin as builtin_hooks
 from app.hooks.bus import bus, toggles
 from app.mcp_server import mcp
-from app.models import Alert
+from app.models import Alert, ist_today
 from app.plugins import load_plugins
+from app.security import AdminUser
 from app.seed import DEMO_ACCOUNTS, ensure_production_setup, seed_demo
 from app.services.billing import BillingError, business_profile
 from app.services.inventory import InventoryError
@@ -90,7 +94,7 @@ def create_app(*, start_scheduler: bool = True) -> FastAPI:
     async def billing_error(_: Request, exc: BillingError) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=404 if "not found" in str(exc) else 400)
 
-    for module in (auth, catalog, operations, insights, india, billing, agents, automation):
+    for module in (auth, catalog, operations, insights, india, billing, payables, agents, automation):
         app.include_router(module.router)
     app.include_router(auth.users_router)
 
@@ -125,6 +129,22 @@ def create_app(*, start_scheduler: bool = True) -> FastAPI:
             "demo_mode": settings.demo_mode,
             "public_url": settings.public_url,
         }
+
+    @app.get("/api/system/backup", tags=["system"])
+    def backup(_: AdminUser) -> FileResponse:
+        """Download a full copy of the database (SQLite). Keep it safe - it has all bills and customers."""
+        if not settings.database_url.startswith("sqlite"):
+            raise HTTPException(400, "Backups from the app work with SQLite. For PostgreSQL use pg_dump.")
+        folder = Path(tempfile.mkdtemp(prefix="ii-backup-"))
+        target = folder / f"intelliinventory-{ist_today().isoformat()}.db"
+        with get_engine().connect() as conn:
+            conn.exec_driver_sql("VACUUM INTO ?", (str(target),))
+        return FileResponse(
+            target,
+            media_type="application/vnd.sqlite3",
+            filename=target.name,
+            background=BackgroundTask(shutil.rmtree, folder, ignore_errors=True),
+        )
 
     # MCP over streamable HTTP, protected by the integration token.
     async def mcp_guard(scope, receive, send):

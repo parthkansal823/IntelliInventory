@@ -55,6 +55,11 @@ def find_sku(text: str) -> str | None:
 # Common Hinglish phrasings mapped onto English intent keywords, so the free planner
 # understands e.g. "kya order karna hai?" or "kaunsa stock kam hai?".
 HINGLISH = [
+    (
+        r"\b(supplier ko kitna dena|kitna dena hai|kisko dena hai|dena baaki|dena baki|supplier (ka|ki|ke) udhaa?r|supplier dues|payables?)\b",
+        " payables ",
+    ),
+    (r"\b(wapas|wapis|wapsi|vapas|lautana|lauta)\b", " return "),
     (r"\b(aaj ka hisaab|aaj ka hisab|hisaab|hisab|day close|closing|galla band)\b", " dayclose "),
     (r"\b(expire|expiry|expired|kharab hone|kharab ho|khatam hone wala maal)\b", " expiry "),
     (r"\b(aaj ki sale|aaj ki bikri|aaj ka collection|aaj ka galla|bikri kitni|sale kitni)\b", " billing "),
@@ -244,6 +249,11 @@ class OfflineProvider(Provider):
                 return [_call("detect_anomalies", window_days=7)], ""
             if can("delegate"):
                 return delegate("auditor", "anomaly detection")
+        if _has(text, "payables"):
+            if can("supplier_dues"):
+                return [_call("supplier_dues")], ""
+            if can("delegate"):
+                return delegate("procurement", "supplier khata (payables)")
         if _has(text, "supplier", "vendor", "scorecard"):
             if can("list_suppliers"):
                 return [_call("list_suppliers")], ""
@@ -260,6 +270,26 @@ class OfflineProvider(Provider):
             if can("delegate"):
                 return delegate("analyst", "expiring stock")
         invoice_no = re.search(r"\b[a-z0-9]{1,4}/\d{2}-\d{2}/\d{1,5}\b", text)
+        if invoice_no and sku and _has(text, "return", "refund"):
+            rest = text.replace(invoice_no.group(0), " ").replace(sku.lower(), " ")
+            qty = NUM_RE.search(rest)
+            if can("return_items"):
+                args = {"invoice": invoice_no.group(0).upper(), "sku": sku, "quantity": int(qty.group(1)) if qty else 1}
+                if _has(text, "upi"):
+                    args["refund_mode"] = "upi"
+                return [_call("return_items", **args)], ""
+            if can("delegate"):
+                return delegate("auditor", "sales return")
+        if _has(text, "payables"):
+            if can("supplier_dues"):
+                return [_call("supplier_dues")], ""
+            if can("delegate"):
+                return delegate("procurement", "supplier khata (payables)")
+        who = re.search(r"\b([a-z][a-z .]{1,30}?)\s+(?:ki|ka|ke)\s+(?:history|kharid|khareed|purchases?)\b", text) or re.search(
+            r"\b(?:history|purchases?)\s+(?:of|for)\s+([a-z][a-z .]{1,30})", text
+        )
+        if who and can("customer_history"):
+            return [_call("customer_history", customer=who.group(1).strip().split()[-1])], ""
         if invoice_no and can("get_invoice"):
             return [_call("get_invoice", number=invoice_no.group(0).upper())], ""
         if _has(text, "udhaar", "udhar", "khata", "dues", "baki", "baaki", "outstanding", "owes me", "credit sale"):
@@ -768,8 +798,48 @@ class OfflineProvider(Provider):
             f"- Bills: **{d['bills']}** · Sale: **{self._money(d['sales'])}** (GST {self._money(d['tax'])})\n"
             f"- Received: {modes} · **Cash in galla: {self._money(d['cash_in_drawer'])}**\n"
             f"- Udhaar diya: {self._money(d['udhaar_given'])} · Purana udhaar aaya: {self._money(d['udhaar_collected'])}\n"
-            f"- Top items: {top}"
+            + (f"- Wapsi (returns): {d['returns_count']} · {self._money(d['returns'])}\n" if d.get("returns_count") else "")
+            + (f"- Supplier ko diya: {self._money(sum(d['supplier_paid'].values()))}\n" if d.get("supplier_paid") else "")
+            + f"- Top items: {top}"
         )
+
+    def _r_supplier_dues(self, d: dict) -> str:
+        s = d["summary"]
+        if not d["suppliers"]:
+            return "✅ Kisi supplier ka kuch dena baaki nahi — no supplier payments are due."
+        rows = [
+            {
+                **r,
+                "due": _d(r["next_due"]) if r["next_due"] else "—",
+                "late": self._money(r["overdue"]) if r["overdue"] else "—",
+            }
+            for r in d["suppliers"]
+        ]
+        return (
+            f"### 🏭 Supplier khata — dena hai **{self._money(s['total'])}** ({s['suppliers']} supplier)\n"
+            f"Overdue: **{self._money(s['overdue'])}** · Is hafte: {self._money(s['due_this_week'])}\n\n"
+            + self._table(rows, [("Supplier", "name"), ("Dena ₹", "balance"), ("Overdue", "late"), ("Next due", "due")])
+            + "\n\n_Pay from Purchase orders → Supplier khata (cash / UPI QR / bank)._"
+        )
+
+    def _r_customer_history(self, d: dict) -> str:
+        c = d["customer"]
+        top = ", ".join(f"{i['name']} ×{i['quantity']}" for i in d["top_items"][:5]) or "—"
+        last = _d(d["last_visit"]) if d["last_visit"] else "—"
+        return (
+            f"### 👤 {c['name']} {('· ' + c['phone']) if c.get('phone') else ''}\n"
+            f"- Bills: **{d['bills']}** · Total kharida: **{self._money(d['total_spent'])}** · Average {self._money(d['avg_bill'])}\n"
+            f"- Udhaar baaki: **{self._money(d['balance'])}** · Points: {d['points']} · Last visit: {last}\n"
+            f"- Favourite items: {top}"
+        )
+
+    def _r_return_items(self, d: dict) -> str:
+        if d.get("error"):
+            return f"⚠️ {d['error']}"
+        n = d["credit_note"]
+        items = ", ".join(f"{ln['name']} ×{ln['quantity']}" for ln in n["lines"])
+        money = f"refund **{self._money(n['refunded'])}** ({n['refund_mode'].upper()})" if n["refunded"] else "udhaar se kat gaya"
+        return f"↩️ Return done — credit note **{n['number']}** for {items}: {self._money(n['total'])}, {money}. Stock wapas shelf pe."
 
     def _r_expiring_products(self, d: list) -> str:
         if not d:

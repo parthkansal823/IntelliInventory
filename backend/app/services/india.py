@@ -22,6 +22,8 @@ from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from app.models import (
+    CreditNote,
+    CreditNoteLine,
     Invoice,
     InvoiceLine,
     InvoiceStatus,
@@ -276,6 +278,20 @@ def gst_report(session: Session, days: int = 30) -> dict:
         s = slab(0.0 if kind == "export_invoice" else float(rate))
         s["sales_taxable"] += float(taxable or 0)
         s["output_tax"] += float(tax or 0)
+    # Sales returns (credit notes) reduce the output tax of the slab they were billed in.
+    returned = session.exec(
+        select(Invoice.kind, InvoiceLine.gst_rate, func.sum(CreditNoteLine.taxable), func.sum(CreditNoteLine.tax))
+        .select_from(CreditNoteLine)
+        .join(CreditNote, CreditNote.id == CreditNoteLine.note_id)
+        .join(InvoiceLine, InvoiceLine.id == CreditNoteLine.invoice_line_id)
+        .join(Invoice, Invoice.id == InvoiceLine.invoice_id)
+        .where(CreditNote.created_at >= since, Invoice.status != InvoiceStatus.CANCELLED)
+        .group_by(Invoice.kind, InvoiceLine.gst_rate)
+    ).all()
+    for kind, rate, taxable, tax in returned:
+        s = slab(0.0 if kind == "export_invoice" else float(rate))
+        s["sales_taxable"] -= float(taxable or 0)
+        s["output_tax"] -= float(tax or 0)
 
     # Other sales (scanner / POS imports without an invoice): estimated at the product's rate.
     sales = session.exec(

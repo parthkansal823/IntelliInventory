@@ -234,7 +234,7 @@ export interface CycleCountSummary {
 
 export interface Warehouse { id: number; code: string; name: string; location: string | null; state: string | null; units?: number; value?: number }
 export interface Category { id: number; name: string; color: string }
-export interface Supplier { id: number; name: string; email: string | null; phone: string | null; lead_time_days: number; rating: number; gstin: string | null; state: string | null; upi_id: string | null }
+export interface Supplier { id: number; name: string; email: string | null; phone: string | null; lead_time_days: number; rating: number; gstin: string | null; state: string | null; upi_id: string | null; credit_days: number }
 
 export interface FestivalInfo {
   slug: string
@@ -369,7 +369,7 @@ export interface BusinessProfile {
   terms: string
 }
 
-export interface Customer { id: number; name: string; phone: string | null; email: string | null; gstin: string | null; state: string | null; address: string | null; balance: number }
+export interface Customer { id: number; name: string; phone: string | null; email: string | null; gstin: string | null; state: string | null; address: string | null; balance: number; points: number }
 
 export interface InvoiceBrief {
   id: number
@@ -385,6 +385,9 @@ export interface InvoiceBrief {
   tax: number
   total: number
   amount_paid: number
+  returned: number
+  refunded: number
+  points_earned: number
   balance: number
   created_at: string
 }
@@ -407,7 +410,8 @@ export interface InvoiceDetail extends InvoiceBrief {
   notes: string[]
   created_by: string
   cancelled_at: string | null
-  lines: { id: number; product_id: number; sku: string; name: string; hsn_code: string | null; quantity: number; unit_price: number; discount_pct: number; gst_rate: number; taxable: number; tax: number; total: number }[]
+  lines: { id: number; product_id: number; sku: string; name: string; hsn_code: string | null; quantity: number; unit_price: number; discount_pct: number; gst_rate: number; taxable: number; tax: number; total: number; returned_qty: number }[]
+  credit_notes: CreditNote[]
   hsn_summary: { hsn_code: string | null; gst_rate: number; taxable: number; cgst: number; sgst: number; igst: number }[]
   payments: { amount: number; mode: string; reference: string | null; created_at: string }[]
   upi_link: string | null
@@ -446,7 +450,100 @@ export interface DayClose {
   cash_in_drawer: number
   udhaar_given: number
   udhaar_collected: number
+  returns: number
+  returns_count: number
+  net_sales: number
+  refunds: Partial<Record<'cash' | 'upi' | 'bank', number>>
+  points_used: number
+  supplier_paid: Partial<Record<'cash' | 'upi' | 'bank' | 'cheque', number>>
   top_items: { sku: string; name: string; quantity: number; amount: number }[]
+}
+
+export interface CreditNote {
+  id: number
+  number: string
+  invoice_id: number
+  customer_name: string
+  taxable: number
+  cgst: number
+  sgst: number
+  igst: number
+  tax: number
+  total: number
+  refunded: number
+  adjusted: number
+  refund_mode: 'cash' | 'upi' | 'bank'
+  reason: string | null
+  created_at: string
+  lines: { name: string; quantity: number; total: number }[]
+}
+
+export interface CustomerHistory {
+  customer: Omit<Customer, 'balance'>
+  points: number
+  balance: number
+  total_spent: number
+  bills: number
+  avg_bill: number
+  last_visit: string | null
+  top_items: { sku: string; name: string; quantity: number; amount: number }[]
+  invoices: InvoiceBrief[]
+}
+
+export type OfferType = 'bill_percent' | 'buy_x_get_y' | 'item_percent'
+export interface Offer {
+  type: OfferType
+  label: string
+  active: boolean
+  min_amount?: number
+  percent?: number
+  sku?: string | null
+  category?: string | null
+  buy?: number
+  free?: number
+}
+export interface OffersConfig {
+  enabled: boolean
+  loyalty: { enabled: boolean; earn_per_100: number; point_value: number; min_redeem: number }
+  offers: Offer[]
+}
+
+export interface ParsedOrder {
+  text: string
+  items: { product_id: number; sku: string; name: string; quantity: number; unit: string; heard: string; score: number }[]
+  unmatched: string[]
+}
+
+export interface SupplierBill {
+  id: number
+  supplier_id: number
+  po_id: number | null
+  bill_no: string | null
+  bill_date: string
+  due_date: string
+  amount: number
+  paid: number
+  balance: number
+  overdue: boolean
+  days_left: number
+  notes: string | null
+}
+export interface SupplierDue {
+  supplier_id: number
+  name: string
+  phone: string | null
+  upi_id: string | null
+  credit_days: number
+  balance: number
+  overdue: number
+  next_due: string | null
+  bills: SupplierBill[]
+  last_payment: { amount: number; mode: string; date: string } | null
+  upi_link: string | null
+}
+export interface Payables {
+  summary: { total: number; overdue: number; due_this_week: number; suppliers: number }
+  suppliers: SupplierDue[]
 }
 
 export interface ExpiringItem { product_id: number; sku: string; name: string; expiry_date: string; days_left: number; on_hand: number; value: number; action: string }

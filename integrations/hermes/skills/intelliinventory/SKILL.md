@@ -23,6 +23,17 @@ IntelliInventory tools are exposed through MCP as `mcp_intelliinventory_<tool>`.
 3. `get_reorder_recommendations`
 4. Reply with: headline (2 sentences), stock risks, what to reorder, today's 3 priorities.
 
+**"Supplier ko kitna dena hai?" (payables)**
+1. `supplier_dues` → total, overdue and next due date per supplier.
+2. Lead with overdue suppliers; suggest paying the oldest bills first (the app allocates payments FIFO).
+
+**Customer questions ("Parth ki history")**
+1. `customer_history` with the name or phone → bills, favourite items, total spent, points, udhaar.
+
+**Sales return (wapsi)**
+1. `get_invoice` to find the line, then `return_items` (invoice, sku, quantity, refund_mode).
+2. It needs human approval (stock changes). Explain that the value first reduces the customer's udhaar on that bill.
+
 **"What should I reorder?"**
 1. `get_reorder_recommendations` (optionally filter by `supplier`)
 2. Group by supplier → `create_purchase_order` once per supplier with the suggested quantities.

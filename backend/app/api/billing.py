@@ -1,15 +1,15 @@
 """Billing endpoints: invoices, payments, customers (khata) and the business profile printed on bills."""
 
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlmodel import select
 
-from app.models import Customer
-from app.security import CurrentUser, DbSession, ManagerUser, StaffUser, actor
-from app.services import billing
+from app.models import Customer, Role, utcnow
+from app.security import ROLE_RANK, CurrentUser, DbSession, ManagerUser, StaffUser, actor
+from app.services import billing, offers, voice
 
 router = APIRouter(tags=["billing"])
 
@@ -52,6 +52,41 @@ def dues(session: DbSession, _: CurrentUser) -> list[dict]:
     return billing.customer_dues(session)
 
 
+@router.get("/api/billing/offers")
+def get_offers(_: CurrentUser) -> dict:
+    """Offers & loyalty settings (switched off unless the shop turns them on)."""
+    return offers.offers_config()
+
+
+class OffersIn(BaseModel):
+    enabled: bool | None = None
+    loyalty: dict | None = None
+    offers: list[dict] | None = None
+
+
+@router.put("/api/billing/offers")
+def put_offers(body: OffersIn, _: ManagerUser) -> dict:
+    try:
+        return offers.update_offers_config(body.model_dump(exclude_unset=True))
+    except offers.OfferError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+class ParseIn(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/api/billing/parse")
+def parse_order(session: DbSession, body: ParseIn, _: CurrentUser) -> dict:
+    """Voice / quick-type billing: "do kilo aata aur ek maggi" -> matched products with quantities."""
+    return voice.parse_order(session, body.text)
+
+
+@router.get("/api/credit-notes")
+def credit_notes(session: DbSession, _: CurrentUser, limit: int = 100) -> list[dict]:
+    return billing.list_credit_notes(session, max(1, min(limit, 500)))
+
+
 class CustomerIn(BaseModel):
     name: str
     phone: str | None = None
@@ -76,6 +111,12 @@ def create_customer(session: DbSession, body: CustomerIn, _: StaffUser) -> Custo
     session.commit()
     session.refresh(customer)
     return customer
+
+
+@router.get("/api/customers/{customer_id}")
+def customer_history(session: DbSession, customer_id: int, _: CurrentUser) -> dict:
+    """Bills, favourite items, total spent, loyalty points and udhaar balance of one customer."""
+    return billing.customer_history(session, billing.find_customer(session, customer_id))
 
 
 @router.patch("/api/customers/{customer_id}")
@@ -115,6 +156,10 @@ class InvoiceIn(BaseModel):
     payments: list[PaymentPart] | None = None  # split payment, e.g. part cash + part UPI
     prices_include_gst: bool = False
     notes: str | None = None
+    redeem_points: int = Field(default=0, ge=0)
+    apply_offers: bool = False  # the app applies offers itself and sends the discounts
+    client_ref: str | None = Field(default=None, max_length=64)  # offline bills: sync key (sent again = same bill)
+    created_at: datetime | None = None  # offline bills: when the bill was really made
 
 
 @router.get("/api/invoices")
@@ -158,8 +203,22 @@ def create_invoice(session: DbSession, body: InvoiceIn, user: StaffUser) -> dict
         prices_include_gst=body.prices_include_gst,
         notes=body.notes,
         actor=actor(user),
+        redeem_points=body.redeem_points,
+        apply_offers=body.apply_offers,
+        client_ref=body.client_ref,
+        created_at=_offline_time(body.created_at) if body.client_ref else None,
     )
     return billing.invoice_detail(session, inv)
+
+
+def _offline_time(when: datetime | None) -> datetime | None:
+    """Accept the original time of an offline bill if it is plausible (up to 7 days old, not in the future)."""
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        raise HTTPException(422, "created_at needs a timezone")
+    now = utcnow()
+    return when if now - timedelta(days=7) <= when <= now + timedelta(minutes=5) else None
 
 
 class PaymentIn(BaseModel):
@@ -184,3 +243,34 @@ def cancel(session: DbSession, invoice_id: int, body: CancelIn, user: ManagerUse
     inv = billing.find_invoice(session, invoice_id)
     billing.cancel_invoice(session, inv, body.reason, actor=actor(user))
     return billing.invoice_detail(session, inv)
+
+
+class ReturnLine(BaseModel):
+    line_id: int
+    quantity: int = Field(gt=0)
+
+
+class ReturnIn(BaseModel):
+    items: list[ReturnLine] = Field(min_length=1)
+    refund_mode: str = "cash"
+    reason: str | None = Field(default=None, max_length=200)
+
+
+BIG_REFUND = 2000  # refunds above this need a manager
+
+
+@router.post("/api/invoices/{invoice_id}/return")
+def return_items(session: DbSession, invoice_id: int, body: ReturnIn, user: StaffUser) -> dict:
+    """Sales return / wapsi: take back some items, issue a credit note, put the stock back."""
+    inv = billing.find_invoice(session, invoice_id)
+    items = [i.model_dump() for i in body.items]
+    if ROLE_RANK[user.role] < ROLE_RANK[Role.MANAGER]:
+        by_id = {ln.id: ln for ln in inv.lines}
+        value = sum(
+            by_id[i["line_id"]].total * i["quantity"] / by_id[i["line_id"]].quantity for i in items if i["line_id"] in by_id
+        )
+        if value - billing.balance_of(inv) > BIG_REFUND:
+            raise HTTPException(403, f"Refunds above Rs {BIG_REFUND} need a manager")
+    note = billing.return_items(session, inv, items, refund_mode=body.refund_mode, reason=body.reason, actor=actor(user))
+    session.refresh(inv)
+    return {"credit_note": billing.credit_note_brief(note), "invoice": billing.invoice_detail(session, inv)}

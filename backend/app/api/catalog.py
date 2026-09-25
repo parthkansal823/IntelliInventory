@@ -208,6 +208,7 @@ class SupplierIn(BaseModel):
     gstin: str | None = None
     state: str | None = None
     upi_id: str | None = None
+    credit_days: int = Field(default=15, ge=0, le=365)  # supplier udhaar: days before a purchase bill is due
 
     def validated(self) -> dict:
         data = self.model_dump()

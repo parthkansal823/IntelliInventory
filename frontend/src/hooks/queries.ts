@@ -2,12 +2,16 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { get } from '@/lib/api'
+import { cachedGet } from '@/lib/offline'
 import type {
   AgentsOverview,
   BillingSummary,
   BusinessProfile,
   Customer,
   CustomerDue,
+  CustomerHistory,
+  OffersConfig,
+  Payables,
   DayClose,
   ExpiringItem,
   InvoiceBrief,
@@ -75,7 +79,7 @@ export const keys = {
 } as const
 
 export const useDashboard = () => useQuery({ queryKey: keys.dashboard, queryFn: () => get<Dashboard>('/api/analytics/dashboard') })
-export const useProducts = () => useQuery({ queryKey: keys.products, queryFn: () => get<ProductRow[]>('/api/products') })
+export const useProducts = () => useQuery({ queryKey: keys.products, queryFn: () => cachedGet<ProductRow[]>('/api/products') })
 export const useProduct = (id: number | null) =>
   useQuery({ queryKey: keys.product(id ?? 0), queryFn: () => get<ProductDetail>(`/api/products/${id}`), enabled: !!id })
 export const useAlerts = () => useQuery({ queryKey: keys.alerts, queryFn: () => get<Alert[]>('/api/alerts') })
@@ -174,15 +178,19 @@ export const useFestivals = () => useQuery({ queryKey: ['festivals'], queryFn: (
 export const useFestivalPlan = (festival: string | null) =>
   useQuery({ queryKey: ['festival-plan', festival], queryFn: () => get<FestivalPlan>(`/api/india/festival-plan${festival ? `?festival=${festival}` : ''}`) })
 export const useGst = (days = 30) => useQuery({ queryKey: ['gst', days], queryFn: () => get<GstReport>(`/api/india/gst?days=${days}`) })
-export const useGstSettings = () => useQuery({ queryKey: ['gst-settings'], queryFn: () => get<GstSettings>('/api/india/settings'), staleTime: 60_000 })
+export const useGstSettings = () => useQuery({ queryKey: ['gst-settings'], queryFn: () => cachedGet<GstSettings>('/api/india/settings'), staleTime: 60_000 })
 
-export const useBillingProfile = () => useQuery({ queryKey: ['billing', 'profile'], queryFn: () => get<BusinessProfile>('/api/billing/profile'), staleTime: 60_000 })
+export const useBillingProfile = () => useQuery({ queryKey: ['billing', 'profile'], queryFn: () => cachedGet<BusinessProfile>('/api/billing/profile'), staleTime: 60_000 })
 export const useBillingSummary = (days = 7) => useQuery({ queryKey: ['billing', 'summary', days], queryFn: () => get<BillingSummary>(`/api/billing/summary?days=${days}`) })
 export const useDues = () => useQuery({ queryKey: ['billing', 'dues'], queryFn: () => get<CustomerDue[]>('/api/billing/dues') })
-export const useCustomers = () => useQuery({ queryKey: ['customers'], queryFn: () => get<Customer[]>('/api/customers') })
+export const useCustomers = () => useQuery({ queryKey: ['customers'], queryFn: () => cachedGet<Customer[]>('/api/customers') })
 export const useInvoices = (status = 'all', q = '') =>
   useQuery({ queryKey: ['invoices', status, q], queryFn: () => get<InvoiceBrief[]>(`/api/invoices?status=${status}${q ? `&q=${encodeURIComponent(q)}` : ''}`) })
 export const useInvoice = (id: number | null) =>
   useQuery({ queryKey: ['invoice', id], queryFn: () => get<InvoiceDetail>(`/api/invoices/${id}`), enabled: !!id })
 export const useDayClose = (day: string) => useQuery({ queryKey: ['billing', 'day-close', day], queryFn: () => get<DayClose>(`/api/billing/day-close?day=${day}`) })
+export const useOffers = () => useQuery({ queryKey: ['billing', 'offers'], queryFn: () => cachedGet<OffersConfig>('/api/billing/offers'), staleTime: 60_000 })
+export const useCustomerHistory = (id: number | null) =>
+  useQuery({ queryKey: ['customers', 'history', id], queryFn: () => get<CustomerHistory>(`/api/customers/${id}`), enabled: !!id })
+export const usePayables = (all = false) => useQuery({ queryKey: ['payables', all], queryFn: () => get<Payables>(`/api/payables${all ? '?all=true' : ''}`) })
 export const useExpiring = (days = 15) => useQuery({ queryKey: ['expiring', days], queryFn: () => get<ExpiringItem[]>(`/api/analytics/expiring?days=${days}`) })

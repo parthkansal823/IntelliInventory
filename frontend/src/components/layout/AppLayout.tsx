@@ -18,6 +18,7 @@ import { usePublicConfig } from '@/hooks/usePublicConfig'
 import { cn } from '@/lib/utils'
 import { Kbd, Tooltip } from '../ui'
 import { LangToggle, Onboarding, openTutorial } from '../Onboarding'
+import { OfflineBadge } from '../OfflineBadge'
 import { CommandPalette } from './CommandPalette'
 import { NAV } from './nav'
 import { useT } from '@/lib/i18n'
@@ -198,6 +199,7 @@ export function AppLayout() {
                 <span className="hidden sm:inline">{connected ? 'Live' : 'Offline'}</span>
               </span>
             </Tooltip>
+            <OfflineBadge />
             <LangToggle />
             <Tooltip content={t('Help & tutorial')}>
               <button onClick={openTutorial} className="rounded-lg p-2 text-muted hover:bg-surface-2 hover:text-fg" aria-label={t('Help & tutorial')}>
