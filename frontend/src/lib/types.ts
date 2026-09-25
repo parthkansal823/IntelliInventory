@@ -348,3 +348,83 @@ export interface Plugin { name: string; source: string; registered: string[]; de
 
 export interface GstSettings { gst_enabled: boolean; slabs: number[]; default_slabs: number[]; states: string[] }
 export interface GstSuggestion { hsn_code: string | null; gst_rate: number; source: 'rules' | 'hermes'; confidence: 'low' | 'medium' | 'high'; reason: string }
+
+export type PaymentMode = 'cash' | 'upi' | 'card' | 'bank' | 'credit'
+export type InvoiceStatus = 'paid' | 'partial' | 'unpaid' | 'cancelled'
+
+export interface BusinessProfile {
+  name: string
+  address: string
+  gstin: string
+  state: string
+  phone: string
+  email: string
+  upi_id: string
+  invoice_prefix: string
+  terms: string
+}
+
+export interface Customer { id: number; name: string; phone: string | null; email: string | null; gstin: string | null; state: string | null; address: string | null; balance: number }
+
+export interface InvoiceBrief {
+  id: number
+  number: string
+  kind: 'tax_invoice' | 'bill_of_supply' | 'export_invoice'
+  status: InvoiceStatus
+  customer_id: number | null
+  customer_name: string
+  customer_phone: string | null
+  payment_mode: PaymentMode | 'split'
+  items: number
+  taxable: number
+  tax: number
+  total: number
+  amount_paid: number
+  balance: number
+  created_at: string
+}
+
+export interface InvoiceDetail extends InvoiceBrief {
+  title: string
+  seller: BusinessProfile
+  customer_gstin: string | null
+  customer_address: string | null
+  place_of_supply: string | null
+  interstate: boolean
+  prices_include_gst: boolean
+  subtotal: number
+  discount: number
+  cgst: number
+  sgst: number
+  igst: number
+  round_off: number
+  amount_in_words: string
+  notes: string[]
+  created_by: string
+  cancelled_at: string | null
+  lines: { id: number; product_id: number; sku: string; name: string; hsn_code: string | null; quantity: number; unit_price: number; discount_pct: number; gst_rate: number; taxable: number; tax: number; total: number }[]
+  hsn_summary: { hsn_code: string | null; gst_rate: number; taxable: number; cgst: number; sgst: number; igst: number }[]
+  payments: { amount: number; mode: string; reference: string | null; created_at: string }[]
+  upi_link: string | null
+}
+
+export interface BillingSummary {
+  days: number
+  today: { bills: number; sales: number }
+  period: { bills: number; sales: number; tax: number; avg_bill: number }
+  collected_by_mode: Partial<Record<PaymentMode, number>>
+  outstanding: number
+  customers_with_dues: number
+  daily: { date: string; sales: number }[]
+  financial_year: string
+}
+
+export interface CustomerDue {
+  customer_id: number
+  name: string
+  phone: string | null
+  balance: number
+  invoices: { id: number; number: string; balance: number; date: string }[]
+  oldest: string
+  days_outstanding: number
+}

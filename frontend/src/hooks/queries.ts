@@ -4,6 +4,12 @@ import { toast } from 'sonner'
 import { get } from '@/lib/api'
 import type {
   AgentsOverview,
+  BillingSummary,
+  BusinessProfile,
+  Customer,
+  CustomerDue,
+  InvoiceBrief,
+  InvoiceDetail,
   Alert,
   Anomaly,
   Approval,
@@ -167,3 +173,12 @@ export const useFestivalPlan = (festival: string | null) =>
   useQuery({ queryKey: ['festival-plan', festival], queryFn: () => get<FestivalPlan>(`/api/india/festival-plan${festival ? `?festival=${festival}` : ''}`) })
 export const useGst = (days = 30) => useQuery({ queryKey: ['gst', days], queryFn: () => get<GstReport>(`/api/india/gst?days=${days}`) })
 export const useGstSettings = () => useQuery({ queryKey: ['gst-settings'], queryFn: () => get<GstSettings>('/api/india/settings'), staleTime: 60_000 })
+
+export const useBillingProfile = () => useQuery({ queryKey: ['billing', 'profile'], queryFn: () => get<BusinessProfile>('/api/billing/profile'), staleTime: 60_000 })
+export const useBillingSummary = (days = 7) => useQuery({ queryKey: ['billing', 'summary', days], queryFn: () => get<BillingSummary>(`/api/billing/summary?days=${days}`) })
+export const useDues = () => useQuery({ queryKey: ['billing', 'dues'], queryFn: () => get<CustomerDue[]>('/api/billing/dues') })
+export const useCustomers = () => useQuery({ queryKey: ['customers'], queryFn: () => get<Customer[]>('/api/customers') })
+export const useInvoices = (status = 'all', q = '') =>
+  useQuery({ queryKey: ['invoices', status, q], queryFn: () => get<InvoiceBrief[]>(`/api/invoices?status=${status}${q ? `&q=${encodeURIComponent(q)}` : ''}`) })
+export const useInvoice = (id: number | null) =>
+  useQuery({ queryKey: ['invoice', id], queryFn: () => get<InvoiceDetail>(`/api/invoices/${id}`), enabled: !!id })

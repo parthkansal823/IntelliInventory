@@ -16,6 +16,8 @@ const LiveContext = createContext<LiveState>({ events: [], connected: false })
 const INVALIDATES: [RegExp, QueryKey[]][] = [
   [/^stock\.|^catalog\.|^product\./, [keys.products, keys.dashboard, keys.alerts, keys.reorder, ['products'], ['health'], ['markdowns']]],
   [/^po\./, [['purchase-orders'], keys.dashboard, keys.reorder, keys.suppliersScores]],
+  [/^invoice\./, [['invoices'], ['invoice'], ['billing'], ['customers'], ['gst'], keys.dashboard]],
+  [/^product\.gst_autofilled/, [['festival-plan'], ['gst'], ['gst-settings']]],
   [/^approval\./, [['approvals'], keys.conversations]],
   [/^count\./, [keys.counts]],
   [/^report\./, [keys.reports]],

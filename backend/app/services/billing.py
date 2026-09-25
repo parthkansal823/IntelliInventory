@@ -232,21 +232,34 @@ def create_invoice(
     warehouse_ref: str | int | None = None,
     payment_mode: str = "cash",
     amount_paid: float | None = None,
+    payments: list[dict] | None = None,
     prices_include_gst: bool = False,
     notes: str | None = None,
     actor: str = "user",
     created_at: datetime | None = None,
     emit: bool = True,
 ) -> Invoice:
-    """Bill items (each {product_id | sku, quantity, unit_price?, discount_pct?}); posts stock and payment."""
+    """Bill items (each {product_id | sku, quantity, unit_price?, discount_pct?}); posts stock and payment.
+
+    `payments` splits the money received across modes, e.g. [{"mode": "cash", "amount": 500}, {"mode": "upi", ...}];
+    whatever is not paid goes on the customer's khata.
+    """
     if not items:
         raise BillingError("Add at least one item to the bill")
-    if payment_mode not in PAYMENT_MODES:
+    split = [p for p in (payments or []) if float(p.get("amount") or 0) > 0]
+    for p in split:
+        if p.get("mode") not in PAYMENT_MODES or p.get("mode") == "credit":
+            raise BillingError("Split payments must be cash, upi, card or bank")
+    if split:
+        modes = {p["mode"] for p in split}
+        payment_mode = modes.pop() if len(modes) == 1 else "split"
+        amount_paid = sum(float(p["amount"]) for p in split)
+    elif payment_mode not in PAYMENT_MODES:
         raise BillingError(f"Payment mode must be one of {', '.join(PAYMENT_MODES)}")
     profile = business_profile()
     buyer = _resolve_customer(session, customer_id, customer)
     if payment_mode == "credit" and buyer is None:
-        raise BillingError("Credit (udhaar) needs a customer name and phone number for the khata")
+        raise BillingError("Udhaar (credit) needs the customer's name and phone number for the khata")
     fixed_wh = find_warehouse(session, warehouse_ref) if warehouse_ref not in (None, "") else None
 
     seller_state = profile["state"] or (fixed_wh.state if fixed_wh else None) or _first_warehouse_state(session)
@@ -325,6 +338,8 @@ def create_invoice(
     invoice.round_off = round(total - exact, 2)
     invoice.total = total
     paid = (0.0 if payment_mode == "credit" else total) if amount_paid is None else min(max(float(amount_paid), 0.0), total)
+    if paid < total - 0.005 and buyer is None:
+        raise BillingError("Money is still due on this bill - add the customer's name and phone so it goes on their khata")
     invoice.amount_paid = round(paid, 2)
     invoice.status = _status(total, paid)
     if kind == "export_invoice":
@@ -351,12 +366,19 @@ def create_invoice(
         raise
     session.add(invoice)
     session.flush()
-    if paid > 0:
+    received = split or ([{"mode": "cash" if payment_mode == "credit" else payment_mode, "amount": paid}] if paid > 0 else [])
+    remaining = invoice.amount_paid
+    for p in received:  # change returned in cash is not recorded - payments never exceed the bill
+        amount = round(min(float(p["amount"]), remaining), 2)
+        if amount <= 0:
+            continue
+        remaining = round(remaining - amount, 2)
         session.add(
             Payment(
                 invoice_id=invoice.id,
-                amount=invoice.amount_paid,
-                mode="cash" if payment_mode == "credit" else payment_mode,
+                amount=amount,
+                mode=p["mode"],
+                reference=p.get("reference"),
                 created_by=actor,
                 created_at=when,
             )
@@ -649,3 +671,58 @@ def demo_profile() -> dict:
         "invoice_prefix": "INV",
         "terms": "Goods once sold will not be taken back or exchanged. Subject to Mumbai jurisdiction.",
     }
+
+
+def sales_register_csv(session: Session, days: int = 31) -> str:
+    """GSTR-1 friendly sales register: one row per invoice and GST rate (hand it to your CA / import in Tally)."""
+    import csv
+    import io
+
+    since = _ist_midnight(utcnow().astimezone(IST).date() - timedelta(days=days - 1))
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(
+        [
+            "Invoice No",
+            "Invoice Date",
+            "Type",
+            "Customer",
+            "Customer GSTIN",
+            "Place of Supply",
+            "GST Rate %",
+            "Taxable Value",
+            "CGST",
+            "SGST",
+            "IGST",
+            "Invoice Total",
+            "Status",
+        ]
+    )
+    invoices = session.exec(select(Invoice).where(Invoice.created_at >= since).order_by(Invoice.created_at)).all()
+    for inv in invoices:
+        by_rate: dict[float, list[float]] = {}
+        for line in inv.lines:
+            row = by_rate.setdefault(line.gst_rate, [0.0, 0.0])
+            row[0] += line.taxable
+            row[1] += line.tax
+        for rate, (taxable, tax) in sorted(by_rate.items()):
+            igst = tax if inv.igst > 0 else 0.0
+            cgst = 0.0 if igst else tax / 2
+            writer.writerow(
+                [
+                    inv.number,
+                    inv.created_at.astimezone(IST).strftime("%d-%m-%Y"),
+                    {"tax_invoice": "B2B" if inv.customer_gstin else "B2C", "export_invoice": "EXPORT"}.get(inv.kind, "BOS"),
+                    inv.customer_name,
+                    inv.customer_gstin or "",
+                    inv.place_of_supply or "",
+                    f"{rate:g}",
+                    f"{taxable:.2f}",
+                    f"{cgst:.2f}",
+                    f"{tax - igst - cgst:.2f}",
+                    f"{igst:.2f}",
+                    f"{inv.total:.2f}",
+                    inv.status,
+                ]
+            )
+    return out.getvalue()

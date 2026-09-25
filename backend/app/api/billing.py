@@ -1,6 +1,7 @@
 """Billing endpoints: invoices, payments, customers (khata) and the business profile printed on bills."""
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlmodel import select
 
@@ -90,6 +91,12 @@ class ItemIn(BaseModel):
     discount_pct: float = Field(default=0, ge=0, le=100)
 
 
+class PaymentPart(BaseModel):
+    mode: str
+    amount: float = Field(ge=0)
+    reference: str | None = None
+
+
 class InvoiceIn(BaseModel):
     items: list[ItemIn] = Field(min_length=1)
     customer_id: int | None = None
@@ -97,6 +104,7 @@ class InvoiceIn(BaseModel):
     warehouse: str | int | None = None
     payment_mode: str = "cash"
     amount_paid: float | None = Field(default=None, ge=0)
+    payments: list[PaymentPart] | None = None  # split payment, e.g. part cash + part UPI
     prices_include_gst: bool = False
     notes: str | None = None
 
@@ -111,6 +119,16 @@ def invoices(
     limit: int = 200,
 ) -> list[dict]:
     return billing.list_invoices(session, status, q, customer_id, max(1, min(limit, 500)))
+
+
+@router.get("/api/invoices/export.csv", response_class=PlainTextResponse)
+def export_sales_register(session: DbSession, _: ManagerUser, days: int = 31) -> PlainTextResponse:
+    """Sales register CSV (GSTR-1 friendly) for your CA or Tally."""
+    return PlainTextResponse(
+        billing.sales_register_csv(session, max(1, min(days, 366))),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="sales-register-{days}d.csv"'},
+    )
 
 
 @router.get("/api/invoices/{invoice_id}")
@@ -128,6 +146,7 @@ def create_invoice(session: DbSession, body: InvoiceIn, user: StaffUser) -> dict
         warehouse_ref=body.warehouse,
         payment_mode=body.payment_mode,
         amount_paid=body.amount_paid,
+        payments=[p.model_dump() for p in body.payments] if body.payments else None,
         prices_include_gst=body.prices_include_gst,
         notes=body.notes,
         actor=actor(user),

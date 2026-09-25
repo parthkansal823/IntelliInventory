@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { applyEvent } from '@/hooks/useAgentChat'
 import type { ChatItem } from './types'
 import { readSSE } from './api'
+import { previewBill } from './billing'
 import { plainText } from './speech'
 import { actorLabel, money, pct } from './utils'
 
@@ -51,5 +52,19 @@ describe('formatters', () => {
 
   it('strips markdown for text-to-speech', () => {
     expect(plainText('### Title\n- **bold** item\n| a | b |')).toBe('Title bold item')
+  })
+})
+
+describe('bill preview matches the server maths', () => {
+  const line = { product_id: 1, sku: 'HOM-4001', name: 'Bottle', quantity: 2, unit_price: 472.5, discount_pct: 0, gst_rate: 5, stock: 10 }
+  it('splits CGST/SGST for GST-inclusive counter sales', () => {
+    const b = previewBill([line], { inclusive: true, interstate: false, exportSale: false, gstOn: true })
+    expect([b.taxable, b.cgst, b.sgst, b.igst, b.total]).toEqual([900, 22.5, 22.5, 0, 945])
+  })
+  it('charges IGST inter-state, nothing on exports, rounds to the rupee', () => {
+    const inter = previewBill([{ ...line, unit_price: 99.99, discount_pct: 10 }], { inclusive: false, interstate: true, exportSale: false, gstOn: true })
+    expect(inter.igst).toBe(9)
+    expect(inter.total).toBe(Math.round(179.98 + 9))
+    expect(previewBill([line], { inclusive: false, interstate: true, exportSale: true, gstOn: true }).tax).toBe(0)
   })
 })

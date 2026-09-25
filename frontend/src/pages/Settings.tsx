@@ -1,11 +1,11 @@
 import { Bot, Building2, Check, Keyboard, Landmark, Monitor, Moon, Plug, Plus, RefreshCw, Sparkles, Sun, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Badge, Button, Card, CardHeader, CodeBlock, Dialog, Field, Input, PageHeader, Select, Skeleton, Switch, Table, Tabs, TabsContent, TabsList, TabsTrigger, Td, Th } from '@/components/ui'
-import { keys, useAction, useAgents, useCategories, useGstSettings, useProducts, useSupplierScores, useSuppliers, useSystemInfo, useUsers, useWarehouses } from '@/hooks/queries'
+import { keys, useAction, useAgents, useBillingProfile, useCategories, useGstSettings, useProducts, useSupplierScores, useSuppliers, useSystemInfo, useUsers, useWarehouses } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/hooks/useTheme'
 import { patch, post, put } from '@/lib/api'
-import type { GstSettings, Role } from '@/lib/types'
+import type { BusinessProfile, GstSettings, Role } from '@/lib/types'
 import { cn, moneyCompact, number } from '@/lib/utils'
 
 export default function SettingsPage() {
@@ -59,6 +59,7 @@ function Business() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      <ShopProfile states={s.states} />
       <Card>
         <CardHeader title="GST registration" description="Optional — small shops below the GST threshold can switch it off. Nothing is lost; turn it back on any time." icon={<Landmark className="size-4" />} />
         <div className="space-y-4 px-5 pb-5">
@@ -102,6 +103,53 @@ function Business() {
         </div>
       </Card>
     </div>
+  )
+}
+
+const PROFILE_FIELDS: { key: keyof BusinessProfile; label: string; placeholder?: string; hint?: string }[] = [
+  { key: 'name', label: 'Shop / business name' },
+  { key: 'phone', label: 'Phone', placeholder: '98200 12345' },
+  { key: 'address', label: 'Address (printed on bills)' },
+  { key: 'gstin', label: 'GSTIN (optional)', placeholder: '27AAAAA0000A1Z5', hint: 'Your state is taken from the GSTIN.' },
+  { key: 'upi_id', label: 'UPI ID for payments', placeholder: 'yourshop@okaxis', hint: 'Bills show a QR with the exact amount — money goes straight to your bank, no gateway fee.' },
+  { key: 'invoice_prefix', label: 'Bill number prefix', placeholder: 'INV', hint: 'Bills are numbered INV/26-27/00001 — a new series every financial year.' },
+  { key: 'email', label: 'Email' },
+  { key: 'terms', label: 'Footer / terms' },
+]
+
+function ShopProfile({ states }: { states: string[] }) {
+  const profile = useBillingProfile()
+  const { can } = useAuth()
+  const [draft, setDraft] = useState<Partial<BusinessProfile>>({})
+  const save = useAction(() => patch<BusinessProfile>('/api/billing/profile', draft), {
+    success: 'Shop details saved',
+    invalidate: [['billing']],
+    onSuccess: () => setDraft({}),
+  })
+  if (!profile.data) return <Skeleton className="h-64 lg:col-span-2" />
+  const value = (k: keyof BusinessProfile) => draft[k] ?? profile.data[k] ?? ''
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader
+        title="Shop details"
+        description="Printed on every bill and used for the UPI QR."
+        icon={<Building2 className="size-4" />}
+        action={can('manager') && <Button size="sm" disabled={!Object.keys(draft).length} loading={save.isPending} onClick={() => save.mutate(undefined)}>Save</Button>}
+      />
+      <div className="grid gap-3 px-5 pb-5 md:grid-cols-2">
+        {PROFILE_FIELDS.map((f) => (
+          <Field key={f.key} label={f.label} hint={f.hint}>
+            <Input value={value(f.key)} placeholder={f.placeholder} disabled={!can('manager')} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} />
+          </Field>
+        ))}
+        <Field label="State" hint="Same state as the customer → CGST + SGST, other state → IGST.">
+          <Select value={value('state')} disabled={!can('manager')} onChange={(e) => setDraft({ ...draft, state: e.target.value })}>
+            <option value="">—</option>
+            {states.map((st) => <option key={st}>{st}</option>)}
+          </Select>
+        </Field>
+      </div>
+    </Card>
   )
 }
 

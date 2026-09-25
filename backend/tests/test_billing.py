@@ -98,11 +98,34 @@ def test_interstate_b2b_credit_and_payments(client, manager):
     assert paid["status"] == "paid" and paid["balance"] == 0 and len(paid["payments"]) == 2
 
 
+def test_split_payment_and_sales_register(client, manager):
+    res = client.post(
+        "/api/invoices",
+        json={
+            "items": [{"sku": "ACC-2005", "quantity": 1}],
+            "customer": {"name": "Parth", "phone": "98201 45678"},
+            "payments": [{"mode": "cash", "amount": 500}, {"mode": "upi", "amount": 700, "reference": "UTR123"}],
+        },
+        headers=manager,
+    )
+    inv = res.json()
+    assert res.status_code == 201, inv
+    assert inv["payment_mode"] == "split" and inv["amount_paid"] == 1200 and inv["status"] == "partial"
+    assert [p["mode"] for p in inv["payments"]] == ["cash", "upi"]
+    walk_in_short = client.post(
+        "/api/invoices", json={"items": [{"sku": "ACC-2002", "quantity": 1}], "amount_paid": 10}, headers=manager
+    )
+    assert walk_in_short.status_code == 400 and "khata" in walk_in_short.json()["detail"]
+    csv = client.get("/api/invoices/export.csv?days=31", headers=manager)
+    assert csv.status_code == 200 and csv.text.startswith("Invoice No,Invoice Date") and inv["number"] in csv.text
+    assert "EXPORT" in csv.text and "B2C" in csv.text
+
+
 def test_billing_validation(client, manager, viewer):
     walk_in_credit = client.post(
         "/api/invoices", json={"items": [{"sku": "ACC-2002", "quantity": 1}], "payment_mode": "credit"}, headers=manager
     )
-    assert walk_in_credit.status_code == 400 and "udhaar" in walk_in_credit.json()["detail"]
+    assert walk_in_credit.status_code == 400 and "udhaar" in walk_in_credit.json()["detail"].lower()
     too_many = client.post("/api/invoices", json={"items": [{"sku": "ELC-1004", "quantity": 5}]}, headers=manager)
     assert too_many.status_code == 400 and "Insufficient stock" in too_many.json()["detail"]
     assert client.post("/api/invoices", json={"items": [{"sku": "ACC-2002", "quantity": 1}]}, headers=viewer).status_code == 403

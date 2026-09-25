@@ -8,6 +8,7 @@ import { LoginPage } from './pages/Login'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Inventory = lazy(() => import('./pages/Inventory'))
+const Billing = lazy(() => import('./pages/Billing'))
 const Copilot = lazy(() => import('./pages/Copilot'))
 const PurchaseOrders = lazy(() => import('./pages/PurchaseOrders'))
 const Insights = lazy(() => import('./pages/Insights'))
@@ -44,6 +45,7 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: page(<Dashboard />) },
+      { path: 'billing', element: page(<Billing />) },
       { path: 'inventory', element: page(<Inventory />) },
       { path: 'copilot', element: page(<Copilot />) },
       { path: 'purchase-orders', element: page(<PurchaseOrders />) },
