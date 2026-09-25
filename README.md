@@ -121,22 +121,25 @@ docker compose --profile postgres up --build  # + PostgreSQL 17 (set DATABASE_UR
 
 Production build without Docker: `make build`, then `make api`. FastAPI serves the SPA from `frontend/dist`.
 
-## Free deployment (demo link + your real shop)
+## Free deployment (demo link + your real shop) — CI/CD
 
-**Hugging Face Spaces** (free CPU: 2 vCPU / 16 GB RAM) runs the whole app *and* Hermes (Ollama + `hermes3:3b`) in one container.
-Your real shop's data lives in **Neon** free Postgres, so restarts never lose it.
+**Hugging Face Spaces** (free CPU: 2 vCPU / 16 GB RAM) runs the whole app *and* Hermes (Ollama + `hermes3:3b`) in one
+container. Deployment is fully automated:
 
-1. Create a Docker Space and upload `deploy/huggingface/Dockerfile` and `deploy/huggingface/README.md`. It builds the
-   latest code from this repo.
-2. Demo Space: nothing else needed (`DEMO_MODE` defaults to `true`).
-3. Real-shop Space: set `DEMO_MODE=false` and secrets `DATABASE_URL` (Neon), `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
-   `SECRET_KEY`, `INTEGRATION_TOKEN`.
-4. Optional: add GitHub secret `HF_TOKEN` and variable `HF_SPACES` so every push to `main` rebuilds both Spaces.
+```
+push to main → CI (tests, lint, build, Docker check) → ✅ → Deploy workflow → Hugging Face Spaces (that exact commit)
+```
 
-Full walkthrough: [docs/TUTORIAL.md](docs/TUTORIAL.md#15-free-deploy--2-links). Free Spaces sleep after 48 hours without
-visitors and wake on the next visit. Forgot the admin password? `uv run python -m app.cli reset-password <email> <new>`.
+1. Add the GitHub secret **`HF_TOKEN`** (a Hugging Face *write* token). That's it for the public demo:
+   `https://<you>-intelliinventory-demo.hf.space`.
+2. For your real shop add `SHOP_DATABASE_URL` (free [Neon](https://neon.tech) Postgres), `SHOP_ADMIN_EMAIL` and
+   `SHOP_ADMIN_PASSWORD` → a private `https://<you>-intelliinventory-shop.hf.space` whose data survives restarts.
+3. Actions → **Deploy** → *Run workflow* (later pushes deploy automatically).
 
----
+`deploy/huggingface/deploy.py` creates the Spaces, sets their variables/secrets and uploads the Dockerfile pinned to
+the commit that passed CI. Step-by-step with pictures of where to click: [tutorial §15](docs/TUTORIAL.md#15-free-deploy--2-links).
+Free Spaces sleep after 48 hours without visitors and wake on the next visit. Forgot the admin password?
+`uv run python -m app.cli reset-password <email> <new>`.
 
 ## AI providers: free first
 

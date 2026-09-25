@@ -1,0 +1,45 @@
+# CD: when CI passes on main, create/update the Hugging Face Spaces (free) with that exact commit.
+#
+# One-time setup - GitHub repo -> Settings -> Secrets and variables -> Actions -> "New repository secret":
+#   HF_TOKEN             (required) Hugging Face token with WRITE access: huggingface.co/settings/tokens
+#   For your real shop (optional - leave out to deploy only the demo):
+#   SHOP_DATABASE_URL    Neon Postgres URL (neon.tech, free)
+#   SHOP_ADMIN_EMAIL     your login email
+#   SHOP_ADMIN_PASSWORD  your login password
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  huggingface:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: huggingface
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install --quiet "huggingface_hub>=0.25"
+      - name: Create / update Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_DEMO_SPACE: ${{ vars.HF_DEMO_SPACE }}
+          HF_SHOP_SPACE: ${{ vars.HF_SHOP_SPACE }}
+          SHOP_DATABASE_URL: ${{ secrets.SHOP_DATABASE_URL }}
+          SHOP_ADMIN_EMAIL: ${{ secrets.SHOP_ADMIN_EMAIL }}
+          SHOP_ADMIN_PASSWORD: ${{ secrets.SHOP_ADMIN_PASSWORD }}
+          SHOP_SECRET_KEY: ${{ secrets.SHOP_SECRET_KEY }}
+          GIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: python deploy/huggingface/deploy.py

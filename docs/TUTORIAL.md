@@ -341,50 +341,80 @@ Asli AI (Hermes, Nous Research) chahiye toh — **free, aapke computer pe:**
 
 ## 15. Free deploy — 2 links
 
-Hum **Hugging Face Spaces** use karenge — free: 2 CPU, **16 GB RAM** — itna ki **Hermes AI bhi andar chalta hai**.
-Asli dukaan ka data **Neon** (free Postgres) mein rahega taaki restart pe data na jaaye.
+**Hugging Face kya hai?** Ek free website jahan aap apna app online chala sakte ho ("Space" = ek online app).
+Free mein 2 CPU aur **16 GB RAM** milti hai — itni ki **Hermes AI bhi saath mein chalta hai**. Aapko server
+kuch nahi samajhna — **GitHub khud sab karega (CI/CD)**.
 
-| Link | Space | Database |
+### CI/CD kya karta hai (automatic)
+
+```
+Aap code push karo (main)  →  CI: tests + lint + build  →  ✅ pass?  →  CD: Hugging Face pe deploy
+                                                            ❌ fail?  →  deploy nahi hoga (purana link chalta rahega)
+```
+
+- **CI** (`.github/workflows/ci.yml`): har push pe backend tests, frontend tests, lint, build, Docker check.
+- **CD** (`.github/workflows/deploy.yml`): CI pass hone ke baad Spaces **khud banata / update karta hai** — usi commit ke saath.
+
+### Setup — sirf ek baar (5 minute)
+
+**Step 1 — Hugging Face account**
+https://huggingface.co/join pe free account banao (email verify kar lena).
+
+**Step 2 — Token banao**
+https://huggingface.co/settings/tokens → **Create new token** → type **Write** → naam `github-deploy` → **Create** →
+token copy karo (`hf_...` se shuru hota hai).
+
+**Step 3 — Token GitHub mein daalo**
+GitHub pe apna repo kholo → **Settings** → left side **Secrets and variables → Actions** → **New repository secret**:
+- Name: `HF_TOKEN`
+- Secret: jo token copy kiya → **Add secret**
+
+**Step 4 — Deploy chalao**
+Repo → **Actions** tab → left mein **Deploy** → **Run workflow** → **Run workflow** (green button).
+(Aage se har `main` push pe yeh khud chalega.)
+
+**Step 5 — Link kholo**
+Workflow khatam hone pe uske summary mein link dikhega, jaise:
+`https://aapka-username-intelliinventory-demo.hf.space`
+Pehli baar Space build hone mein **10–15 minute** lagte hain (Hermes model download hota hai). Space page pe
+"Building" → "Running" dikhega. Phir Parth / Ananya se login karo. **Demo link ready!** 🎉
+
+### Asli dukaan ka link (optional)
+
+Data permanent rakhne ke liye free database chahiye — **Neon**:
+
+1. https://neon.tech → free sign up → **New project** (region: Singapore ya jo paas ho) →
+   **Connection string** copy karo (`postgresql://...` wala).
+2. GitHub → Settings → Secrets and variables → Actions → teen aur secrets banao:
+
+   | Name | Value |
+   |---|---|
+   | `SHOP_DATABASE_URL` | Neon wali connection string |
+   | `SHOP_ADMIN_EMAIL` | aapka login email |
+   | `SHOP_ADMIN_PASSWORD` | aapka strong password |
+
+3. Actions → **Deploy** → **Run workflow**.
+
+Ab do Spaces banenge:
+
+| Link | Kya hai | Data |
 |---|---|---|
-| **Demo** (sabko dikhane ke liye) | `aapka-naam/intelliinventory-demo` | apne aap (har restart pe fresh demo) |
-| **Asli dukaan** | `aapka-naam/meri-dukaan` | Neon Postgres (free, permanent) |
+| `…-intelliinventory-demo.hf.space` | **Public demo** — sabko dikhao | sample, har restart pe fresh |
+| `…-intelliinventory-shop.hf.space` | **Aapki asli dukaan** — private | Neon mein, permanent |
 
-### A. Demo link (10 minute)
+Asli dukaan wala Space **private** hai — Hugging Face pe login karke hi khulta hai (aapke account se). Sabke liye
+kholna ho toh Space → Settings → **Make public** (app ka apna login phir bhi lagega).
 
-1. https://huggingface.co pe free account banao.
-2. **New → Space** → naam `intelliinventory-demo` → SDK: **Docker** → **Blank** → Hardware: **CPU basic (free)** → Public → Create.
-3. Space ke **Files → Add file → Upload files**: is repo ke `deploy/huggingface/` folder se **`Dockerfile`** aur **`README.md`** upload karo → Commit.
-4. Build shuru (pehli baar ~10–15 min — Hermes model bhi download hota hai). **Settings → Variables** mein (optional):
-   - `DEMO_MODE` = `true`
-   - `PUBLIC_URL` = `https://aapka-naam-intelliinventory-demo.hf.space`
-5. Link: `https://aapka-naam-intelliinventory-demo.hf.space` — Parth / Ananya se login.
+Naam badalne hain? GitHub → Settings → Secrets and variables → Actions → **Variables** tab →
+`HF_DEMO_SPACE` = `aapka-username/meri-dukaan-demo`, `HF_SHOP_SPACE` = `aapka-username/meri-dukaan`.
 
-### B. Asli dukaan ka link
-
-1. **Neon**: https://neon.tech → free account → New project (region: Singapore / Mumbai jo paas ho) → **connection string** copy karo (`postgresql://...`).
-2. Hugging Face pe doosra Space banao (jaise `meri-dukaan`), same 2 files upload karo. **Private** rakh sakte ho.
-3. Space **Settings → Variables and secrets**:
-   - Variable `DEMO_MODE` = `false`
-   - Secret `DATABASE_URL` = Neon wali string
-   - Secret `ADMIN_EMAIL` = aapka email
-   - Secret `ADMIN_PASSWORD` = strong password
-   - Secret `SECRET_KEY` = lambi random line (login tokens ke liye)
-   - Secret `INTEGRATION_TOKEN` = random line (MCP / Hermes Agent ke liye)
-   - Variable `PUBLIC_URL` = `https://aapka-naam-meri-dukaan.hf.space`
-4. **Restart / Factory rebuild** → login → Shop details bharo → billing shuru!
-
-### C. Code update pe dono Spaces khud update (optional)
-
-GitHub repo → **Settings → Secrets and variables → Actions**:
-- Secret `HF_TOKEN` — Hugging Face token (huggingface.co/settings/tokens, **write**)
-- Variable `HF_SPACES` = `aapka-naam/intelliinventory-demo,aapka-naam/meri-dukaan`
-
-Ab `main` pe har push ke baad dono Spaces khud rebuild honge (`.github/workflows/deploy-hf.yml`).
-
-**Dhyan rakhein:**
+### Dhyan rakhein
 - Free Space **48 ghante koi na khole toh so jaata hai** — link kholte hi 1–2 min mein jaag jaata hai.
-- Free CPU pe Hermes 3B ka jawab kuch second leta hai; offline planner turant jawab deta hai (Copilot header se provider badal sakte ho).
-- Demo Space ka data restart pe reset hota hai — **asli dukaan hamesha Neon ke saath chalao.**
+- Free CPU pe Hermes jawab dene mein kuch second leta hai; offline planner turant (Copilot header se badlo).
+- Deploy fail? Repo → **Actions** → laal ❌ wale run pe click → error dikhega. Sabse common: `HF_TOKEN` "Read"
+  type ka hai — **Write** wala banao.
+- Space khud se (bina GitHub ke) bhi bana sakte ho: Docker Space banao aur `deploy/huggingface/` ki `Dockerfile`
+  + `README.md` upload kar do.
 
 ---
 

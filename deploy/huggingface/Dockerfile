@@ -1,15 +1,17 @@
 # IntelliInventory on a FREE Hugging Face Space (CPU basic: 2 vCPU, 16 GB RAM) - with Hermes AI running inside
 # the container through Ollama. No API key, no paid service.
 #
-# Put this file + README.md from this folder into a new Docker Space. It builds the latest code from GitHub.
-# To update later: Space -> Settings -> "Factory rebuild" (or let the GitHub Action do it on every push to main).
+# Normally you never touch this: the GitHub Action (.github/workflows/deploy.yml) uploads it to your Spaces with
+# REF set to the exact commit that passed CI. Manual use: upload this file + README.md to a Docker Space.
 
 # ---- 1. Get the code and build the React app ---------------------------------------------
 FROM node:22-slim AS src
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
 ARG REPO=https://github.com/parthkansal823/IntelliInventory.git
 ARG REF=main
-RUN git clone --depth 1 --branch ${REF} ${REPO} /src
+# REF = branch or commit SHA (the deploy workflow pins the commit that passed CI)
+RUN git init -q /src && cd /src && git remote add origin ${REPO} \
+ && git fetch -q --depth 1 origin ${REF} && git checkout -q FETCH_HEAD
 WORKDIR /src/frontend
 RUN npm ci --no-audit --no-fund && npm run build
 

@@ -38,3 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t intelliinventory .
+      - name: Lint the Hugging Face Space image
+        run: docker build --check deploy/huggingface
+      - name: Deploy script dry run
+        run: HF_TOKEN=dry HF_USER=ci SHOP_DATABASE_URL=postgres://x SHOP_ADMIN_EMAIL=a@b.in SHOP_ADMIN_PASSWORD=x python3 deploy/huggingface/deploy.py --dry-run
